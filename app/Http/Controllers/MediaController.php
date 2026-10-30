@@ -33,8 +33,24 @@ class MediaController extends Controller
 
     public function upload(Request $request): JsonResponse
     {
+        // Detect PHP-level upload truncation before validation
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            if (!$file->isValid()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $file->getErrorMessage() ?: 'The uploaded file is corrupt or exceeds upload limits.',
+                ], 422);
+            }
+        } elseif (empty($_FILES) && empty($_POST) && isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The uploaded file exceeds the server maximum upload limit (128MB).',
+            ], 413);
+        }
+
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
-            'file' => 'required|file|mimes:jpeg,jpg,png,webp,mp4,mov,gif|max:102400', // 100MB max
+            'file' => 'required|file|mimes:jpeg,jpg,png,webp,mp4,mov,gif,svg|max:131072', // 128MB max
             'alt_text' => 'nullable|string|max:500',
         ]);
 

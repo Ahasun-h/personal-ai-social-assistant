@@ -363,7 +363,20 @@ const handleStudioUpload = async (e: Event) => {
       showToast(`${file.name} loaded to canvas!`);
       loadImage();
     } else {
-      showToast('File upload failed.', 'error');
+      let errorMsg = 'File upload failed.';
+      try {
+        const err = await res.json();
+        if (err.errors) {
+          errorMsg = Object.values(err.errors).flat().join(', ');
+        } else if (err.message) {
+          errorMsg = err.message;
+        }
+      } catch {
+        if (res.status === 413) {
+          errorMsg = 'File is too large (exceeds 128MB limit).';
+        }
+      }
+      showToast(errorMsg, 'error');
     }
   } catch (err: any) {
     showToast(err.message || 'Upload error.', 'error');

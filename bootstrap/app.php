@@ -27,5 +27,12 @@ return Application::configure(basePath: dirname(__DIR__))
             }
             return $request->expectsJson();
         });
+
+        $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $e, \Illuminate\Http\Request $request) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The uploaded file is too large. Maximum supported file size is 128MB.',
+            ], 413);
+        });
     })->create();
 

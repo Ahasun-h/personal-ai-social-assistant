@@ -155,8 +155,18 @@ const handleFileUpload = async (event: Event) => {
       uploadMessage.value = { type: 'success', text: `${file.name} uploaded successfully!` };
       router.reload();
     } else {
-      const err = await res.json();
-      uploadMessage.value = { type: 'error', text: err.message || 'Upload failed' };
+      let errorMsg = 'Upload failed.';
+      try {
+        const err = await res.json();
+        if (err.errors) {
+          errorMsg = Object.values(err.errors).flat().join(', ');
+        } else if (err.message) {
+          errorMsg = err.message;
+        }
+      } catch {
+        if (res.status === 413) errorMsg = 'File is too large (exceeds 128MB limit).';
+      }
+      uploadMessage.value = { type: 'error', text: errorMsg };
     }
   } catch (e: any) {
     uploadMessage.value = { type: 'error', text: e.message };

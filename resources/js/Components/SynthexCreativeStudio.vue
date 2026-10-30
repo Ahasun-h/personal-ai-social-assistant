@@ -72,6 +72,8 @@ interface CanvasElement {
   subtext?: string;
   x: number;
   y: number;
+  width?: number;
+  height?: number;
   fontSize: number;
   fontFamily: string;
   color: string;
@@ -360,7 +362,10 @@ const handleStudioUpload = async (e: Event) => {
     if (res.ok) {
       const data = await res.json();
       currentAsset.value = data.data;
-      showToast(`${file.name} loaded to canvas!`);
+      projectTitle.value = data.data?.filename ? data.data.filename.replace(/\.[^/.]+$/, "") : file.name;
+      elements.value = [];
+      selectedElementId.value = null;
+      showToast(`${file.name} loaded cleanly to canvas!`);
       loadImage();
     } else {
       let errorMsg = 'File upload failed.';
@@ -532,44 +537,8 @@ const flipVertical = () => {
   drawCanvas();
 };
 
-// Canvas Layers (Elements)
-const elements = ref<CanvasElement[]>([
-  {
-    id: 'el-1',
-    type: 'metric',
-    text: '+88.4%',
-    subtext: 'Throughput & Growth Velocity',
-    x: 60,
-    y: 60,
-    fontSize: 44,
-    fontFamily: 'JetBrains Mono, monospace',
-    color: '#9EE493',
-    bgColor: 'rgba(15, 23, 42, 0.88)',
-    bgPadding: 22,
-    hasBackground: true,
-    isBold: true,
-    isItalic: false,
-    opacity: 1,
-    visible: true,
-  },
-  {
-    id: 'el-2',
-    type: 'pill',
-    text: '✦ Synthex AI Command',
-    x: 60,
-    y: 530,
-    fontSize: 20,
-    fontFamily: 'Inter, sans-serif',
-    color: '#FFFFFF',
-    bgColor: 'rgba(15, 23, 42, 0.85)',
-    bgPadding: 16,
-    hasBackground: true,
-    isBold: true,
-    isItalic: false,
-    opacity: 0.95,
-    visible: true,
-  },
-]);
+// Canvas Layers (Elements) - Clean by default for uploaded & opened images
+const elements = ref<CanvasElement[]>([]);
 
 const selectedElementId = ref<string | null>(null);
 const isDragging = ref(false);
@@ -691,12 +660,14 @@ const drawCanvas = () => {
     ctx.fillRect(0, 0, w, h);
   }
 
-  // Contrast Scrim
-  const scrim = ctx.createLinearGradient(0, 0, 0, h);
-  scrim.addColorStop(0, 'rgba(15, 23, 42, 0.15)');
-  scrim.addColorStop(1, 'rgba(15, 23, 42, 0.50)');
-  ctx.fillStyle = scrim;
-  ctx.fillRect(0, 0, w, h);
+  // Contrast Scrim - Only rendered when text overlays are present for legibility
+  if (elements.value.length > 0) {
+    const scrim = ctx.createLinearGradient(0, 0, 0, h);
+    scrim.addColorStop(0, 'rgba(15, 23, 42, 0.10)');
+    scrim.addColorStop(1, 'rgba(15, 23, 42, 0.40)');
+    ctx.fillStyle = scrim;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   // Draw Layers / Elements
   elements.value.forEach((el) => {
@@ -719,6 +690,10 @@ const drawCanvas = () => {
       boxWidth = Math.max(boxWidth, subMetrics.width + el.bgPadding * 2);
       boxHeight += Math.round(el.fontSize * 0.7);
     }
+
+    // Persist exact computed geometry for hit-testing
+    el.width = boxWidth;
+    el.height = boxHeight;
 
     if (el.hasBackground) {
       ctx.fillStyle = el.bgColor;
@@ -777,8 +752,8 @@ const onCanvasMouseDown = (e: MouseEvent) => {
   for (let i = elements.value.length - 1; i >= 0; i--) {
     const el = elements.value[i];
     if (!el.visible) continue;
-    const w = el.fontSize * el.text.length * 0.6 + el.bgPadding * 2;
-    const h = el.fontSize * 1.5 + el.bgPadding * 2;
+    const w = el.width || (el.fontSize * el.text.length * 0.6 + el.bgPadding * 2);
+    const h = el.height || (el.fontSize * 1.5 + el.bgPadding * 2);
     if (clickX >= el.x && clickX <= el.x + w && clickY >= el.y && clickY <= el.y + h) {
       found = el;
       break;
@@ -855,6 +830,177 @@ const loadImage = () => {
 // ==========================================
 // 9. LAYER CONTROLS (Add, Duplicate, Delete, Reorder)
 // ==========================================
+const applyExecutiveLayout = (type: 'quote' | 'metric' | 'thesis' | 'clean') => {
+  if (type === 'clean') {
+    elements.value = [];
+    selectedElementId.value = null;
+    pushHistory();
+    drawCanvas();
+    showToast('Applied Clean Photo Mode (all overlays cleared)');
+    return;
+  }
+
+  if (type === 'quote') {
+    elements.value = [
+      {
+        id: `el-quote-${Date.now()}`,
+        type: 'quote',
+        text: '“Great architectures eliminate complexity before writing a single line of code.”',
+        subtext: '— Alex Rivera, Staff Distributed Systems Architect',
+        x: 80,
+        y: Math.round(computedHeight.value * 0.35),
+        fontSize: 32,
+        fontFamily: 'Inter, sans-serif',
+        color: '#FFFFFF',
+        bgColor: 'rgba(15, 23, 42, 0.88)',
+        bgPadding: 26,
+        hasBackground: true,
+        isBold: false,
+        isItalic: true,
+        opacity: 0.98,
+        visible: true,
+      },
+      {
+        id: `el-brand-${Date.now() + 1}`,
+        type: 'pill',
+        text: '✦ Synthex Verified Architecture',
+        x: 80,
+        y: Math.round(computedHeight.value * 0.82),
+        fontSize: 18,
+        fontFamily: 'Inter, sans-serif',
+        color: '#FFFFFF',
+        bgColor: 'rgba(15, 23, 42, 0.82)',
+        bgPadding: 14,
+        hasBackground: true,
+        isBold: true,
+        isItalic: false,
+        opacity: 0.95,
+        visible: true,
+      },
+    ];
+    selectedElementId.value = elements.value[0].id;
+    pushHistory();
+    drawCanvas();
+    showToast('Applied Thought Leader Quote layout');
+    return;
+  }
+
+  if (type === 'metric') {
+    elements.value = [
+      {
+        id: `el-metric-${Date.now()}`,
+        type: 'metric',
+        text: '+88.4%',
+        subtext: 'Throughput & Growth Velocity',
+        x: 80,
+        y: 80,
+        fontSize: 48,
+        fontFamily: 'JetBrains Mono, monospace',
+        color: '#9EE493',
+        bgColor: 'rgba(15, 23, 42, 0.88)',
+        bgPadding: 24,
+        hasBackground: true,
+        isBold: true,
+        isItalic: false,
+        opacity: 1,
+        visible: true,
+      },
+      {
+        id: `el-brand-${Date.now() + 1}`,
+        type: 'pill',
+        text: '✦ Synthex AI Command',
+        x: 80,
+        y: Math.round(computedHeight.value * 0.82),
+        fontSize: 18,
+        fontFamily: 'Inter, sans-serif',
+        color: '#FFFFFF',
+        bgColor: 'rgba(15, 23, 42, 0.85)',
+        bgPadding: 14,
+        hasBackground: true,
+        isBold: true,
+        isItalic: false,
+        opacity: 0.95,
+        visible: true,
+      },
+    ];
+    selectedElementId.value = elements.value[0].id;
+    pushHistory();
+    drawCanvas();
+    showToast('Applied Impact Metric Callout layout');
+    return;
+  }
+
+  if (type === 'thesis') {
+    elements.value = [
+      {
+        id: `el-tag-${Date.now()}`,
+        type: 'pill',
+        text: 'SYSTEMS ARCHITECTURE & SCALE',
+        x: 80,
+        y: 80,
+        fontSize: 16,
+        fontFamily: 'JetBrains Mono, monospace',
+        color: '#38BDF8',
+        bgColor: 'rgba(15, 23, 42, 0.90)',
+        bgPadding: 12,
+        hasBackground: true,
+        isBold: true,
+        isItalic: false,
+        opacity: 1,
+        visible: true,
+      },
+      {
+        id: `el-title-${Date.now() + 1}`,
+        type: 'text',
+        text: 'Idempotency & Isolation Win Over Fragile Microservices',
+        subtext: 'Proven systems lessons from scaling to 10B+ monthly requests.',
+        x: 80,
+        y: 140,
+        fontSize: 34,
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        color: '#FFFFFF',
+        bgColor: 'rgba(15, 23, 42, 0.88)',
+        bgPadding: 22,
+        hasBackground: true,
+        isBold: true,
+        isItalic: false,
+        opacity: 0.98,
+        visible: true,
+      },
+    ];
+    selectedElementId.value = elements.value[1].id;
+    pushHistory();
+    drawCanvas();
+    showToast('Applied Strategic Thesis Banner layout');
+  }
+};
+
+const addCustomBadge = (badge: { text: string; sub: string; color: string }) => {
+  const newEl: CanvasElement = {
+    id: `el-badge-${Date.now()}`,
+    type: 'metric',
+    text: badge.text,
+    subtext: badge.sub,
+    x: 80,
+    y: Math.min(100 + elements.value.length * 70, computedHeight.value - 180),
+    fontSize: 38,
+    fontFamily: 'JetBrains Mono, monospace',
+    color: badge.color,
+    bgColor: 'rgba(15, 23, 42, 0.90)',
+    bgPadding: 20,
+    hasBackground: true,
+    isBold: true,
+    isItalic: false,
+    opacity: 1,
+    visible: true,
+  };
+  elements.value.push(newEl);
+  selectedElementId.value = newEl.id;
+  pushHistory();
+  drawCanvas();
+  showToast(`Added badge: ${badge.text}`);
+};
+
 const addTextElement = (type: 'heading' | 'quote' | 'metric' | 'subheading') => {
   let newEl: CanvasElement;
 
@@ -1694,8 +1840,23 @@ watch([selectedAspect, adjustments], () => {
           </p>
 
           <div class="space-y-2.5 pt-1">
+            <!-- 1. Clean Photo Mode -->
             <button
-              @click="addTextElement('quote')"
+              @click="applyExecutiveLayout('clean')"
+              class="w-full p-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-left transition group shadow-2xs"
+            >
+              <div class="flex items-center gap-2 text-xs font-bold text-slate-800 group-hover:text-fuchsia-700">
+                <Sparkles class="w-4 h-4 text-emerald-600" />
+                <span>Clean Photo Mode (No Overlays)</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1">
+                Display the clean, natural photo with zero text cards or dark contrast scrims.
+              </p>
+            </button>
+
+            <!-- 2. Thought Leader Quote -->
+            <button
+              @click="applyExecutiveLayout('quote')"
               class="w-full p-3.5 rounded-2xl bg-slate-50 hover:bg-fuchsia-50/50 border border-slate-200 text-left transition group"
             >
               <div class="flex items-center gap-2 text-xs font-bold text-slate-800 group-hover:text-fuchsia-700">
@@ -1707,8 +1868,9 @@ watch([selectedAspect, adjustments], () => {
               </p>
             </button>
 
+            <!-- 3. Impact Metric Callout Card -->
             <button
-              @click="addTextElement('metric')"
+              @click="applyExecutiveLayout('metric')"
               class="w-full p-3.5 rounded-2xl bg-slate-50 hover:bg-fuchsia-50/50 border border-slate-200 text-left transition group"
             >
               <div class="flex items-center gap-2 text-xs font-bold text-slate-800 group-hover:text-fuchsia-700">
@@ -1720,8 +1882,9 @@ watch([selectedAspect, adjustments], () => {
               </p>
             </button>
 
+            <!-- 4. Strategic Thesis Banner -->
             <button
-              @click="addTextElement('heading')"
+              @click="applyExecutiveLayout('thesis')"
               class="w-full p-3.5 rounded-2xl bg-slate-50 hover:bg-fuchsia-50/50 border border-slate-200 text-left transition group"
             >
               <div class="flex items-center gap-2 text-xs font-bold text-slate-800 group-hover:text-fuchsia-700">
@@ -1921,18 +2084,25 @@ watch([selectedAspect, adjustments], () => {
             </button>
           </div>
 
+          <p class="text-[11px] text-slate-500">
+            Click any badge to stamp verified engineering proof directly onto your canvas.
+          </p>
+
           <div class="space-y-2 pt-1">
             <button
               v-for="b in [
-                { text: '10x Pipeline Velocity', sub: 'Validated by Synthex Engine', color: '#9EE493' },
+                { text: '18x Pipeline Velocity', sub: 'Validated by Synthex Engine', color: '#9EE493' },
                 { text: '99.99% Availability', sub: 'Zero Downtime Cluster', color: '#38BDF8' },
                 { text: 'Zero Trust Security', sub: 'OWASP ASVS Compliant', color: '#F59E0B' },
+                { text: 'Sub-10ms Latency', sub: 'Global Edge Routing', color: '#A855F7' },
+                { text: 'Deterministic CI/CD', sub: '100% Test Pass Guarantee', color: '#EC4899' },
+                { text: 'ACID Compliance', sub: 'Zero Data Loss Protocol', color: '#10B981' },
               ]"
               :key="b.text"
-              @click="addTextElement('metric')"
-              class="w-full p-3 rounded-2xl bg-slate-900 text-left border border-slate-800 transition hover:scale-101"
+              @click="addCustomBadge(b)"
+              class="w-full p-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-left border border-slate-800 transition hover:scale-101 shadow-sm group"
             >
-              <div class="text-xs font-bold font-mono" :style="{ color: b.color }">{{ b.text }}</div>
+              <div class="text-xs font-bold font-mono group-hover:brightness-110" :style="{ color: b.color }">{{ b.text }}</div>
               <div class="text-[10px] text-slate-400">{{ b.sub }}</div>
             </button>
           </div>
@@ -2176,8 +2346,43 @@ watch([selectedAspect, adjustments], () => {
             class="relative border-2 border-blue-500 shadow-2xl rounded-sm overflow-hidden bg-white transition-all"
             :style="{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'center center' }"
           >
-            <!-- Floating Top [...] Action Capsule Pill (Directly from Picsart Reference!) -->
+            <!-- Floating Selected Element Action Pill (1-Click Delete & Duplicate) -->
             <div
+              v-if="selectedElement"
+              class="absolute top-2.5 left-1/2 -translate-x-1/2 z-30 bg-slate-900 text-white rounded-full px-3.5 py-1.5 shadow-xl flex items-center gap-2.5 text-xs animate-in fade-in zoom-in-95 duration-150 border border-slate-700"
+            >
+              <span class="font-mono text-[11px] text-fuchsia-300 font-bold max-w-[140px] truncate">
+                {{ selectedElement.text }}
+              </span>
+              <div class="h-3.5 w-px bg-slate-700"></div>
+              <button
+                @click="duplicateElement"
+                class="hover:text-fuchsia-400 p-1 rounded-md transition flex items-center gap-1 text-[11px]"
+                title="Duplicate (Ctrl+D)"
+              >
+                <Copy class="w-3.5 h-3.5" />
+                <span>Duplicate</span>
+              </button>
+              <button
+                @click="deleteElement()"
+                class="hover:text-rose-400 text-rose-300 p-1 rounded-md transition flex items-center gap-1 text-[11px] font-semibold"
+                title="Delete Layer (Backspace / Del)"
+              >
+                <Trash2 class="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+              <button
+                @click="selectedElementId = null; drawCanvas()"
+                class="hover:text-slate-300 text-slate-400 p-1 rounded-md transition"
+                title="Deselect"
+              >
+                <CloseIcon class="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <!-- Floating Top [...] Action Capsule Pill (When no element is selected) -->
+            <div
+              v-else
               @click="isContextMenuOpen = !isContextMenuOpen"
               class="absolute top-2.5 left-1/2 -translate-x-1/2 z-30 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full px-3 py-1 shadow-md flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition"
               title="Layer Quick Actions"

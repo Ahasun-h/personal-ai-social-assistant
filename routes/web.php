@@ -7,6 +7,10 @@ Route::get('/', function () {
     return Inertia::render('Dashboard');
 })->name('dashboard');
 
+Route::get('/dashboard', function () {
+    return Inertia::render('Dashboard');
+});
+
 Route::get('/inbox', function () {
     return Inertia::render('Inbox/Index');
 })->name('inbox');

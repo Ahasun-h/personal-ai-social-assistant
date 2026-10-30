@@ -224,6 +224,24 @@ class DatabaseSeeder extends Seeder
             'status' => 'pending',
         ]);
 
+        Schedule::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'draft_id' => $draftReview->id,
+            'social_account_id' => $xAccount->id,
+            'scheduled_for' => now()->setHour(16)->setMinute(30),
+            'status' => 'pending',
+        ]);
+
+        Schedule::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'draft_id' => $draftScheduled->id,
+            'social_account_id' => $xAccount->id,
+            'scheduled_for' => now()->addDays(3)->setHour(14)->setMinute(0),
+            'status' => 'pending',
+        ]);
+
         // 8. Draft 3: Published with Metrics
         $draftPublished = Draft::create([
             'id' => (string) Str::uuid(),
@@ -234,6 +252,15 @@ class DatabaseSeeder extends Seeder
             'published_at' => now()->subDays(2),
             'target_platforms' => ['linkedin'],
             'is_evergreen' => true,
+        ]);
+
+        Schedule::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'draft_id' => $draftPublished->id,
+            'social_account_id' => $liAccount->id,
+            'scheduled_for' => now()->addDays(5)->setHour(11)->setMinute(15),
+            'status' => 'pending',
         ]);
 
         DraftVersion::create([

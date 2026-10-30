@@ -16,7 +16,7 @@ class CalendarController extends Controller
     {
         $schedules = Schedule::query()
             ->with(['draft.versions', 'draft.postMedia.asset', 'socialAccount'])
-            ->orderBy('scheduled_at', 'asc')
+            ->orderBy('scheduled_for', 'asc')
             ->get();
 
         $accounts = SocialAccount::where('is_active', true)->get();

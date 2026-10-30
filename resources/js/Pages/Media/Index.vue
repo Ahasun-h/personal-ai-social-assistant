@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import MediaEditorModal from '@/Components/MediaEditorModal.vue';
 import {
   Image as ImageIcon,
   Sparkles,
@@ -12,12 +13,17 @@ import {
   CheckCircle2,
   AlertCircle,
   FileUp,
+  SlidersHorizontal,
+  Video as VideoIcon,
+  Play,
+  Wand2,
 } from 'lucide-vue-next';
 
 interface MediaAsset {
   id: string;
   filename: string;
   path: string;
+  mime_type?: string;
   width?: number;
   height?: number;
   aspect_ratio?: string;
@@ -43,6 +49,28 @@ const isUploading = ref(false);
 const uploadMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null);
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
+
+// Studio Editor State
+const isEditorOpen = ref(false);
+const editingAsset = ref<MediaAsset | null>(null);
+
+const openEditor = (asset: MediaAsset) => {
+  editingAsset.value = asset;
+  isEditorOpen.value = true;
+};
+
+const onAssetSaved = (newAsset: any) => {
+  isEditorOpen.value = false;
+  uploadMessage.value = { type: 'success', text: 'Edited asset saved to your Media Vault!' };
+  router.reload();
+  setTimeout(() => (uploadMessage.value = null), 4000);
+};
+
+const isVideo = (asset: MediaAsset) => {
+  if (asset.mime_type?.startsWith('video/')) return true;
+  const ext = asset.filename.split('.').pop()?.toLowerCase();
+  return ['mp4', 'mov', 'webm'].includes(ext || '');
+};
 
 const generate = async () => {
   if (!prompt.value) return;
@@ -131,7 +159,7 @@ const deleteAsset = async (id: string) => {
             Media Studio & Asset Vault
           </h1>
           <p class="text-xs text-slate-500 mt-1">
-            Generate visual media independently with Flux, crop aspect ratios, or upload custom imagery for social distribution.
+            Generate visual media with Flux, edit photos and videos directly in the studio, crop social aspect ratios, and manage brand assets.
           </p>
         </div>
 
@@ -258,29 +286,73 @@ const deleteAsset = async (id: string) => {
             <div
               v-for="asset in assets"
               :key="asset.id"
-              class="group relative rounded-3xl overflow-hidden border border-slate-200/80 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)]"
+              class="group relative rounded-3xl overflow-hidden border border-slate-200/80 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all"
             >
-              <img
-                :src="asset.path"
-                :alt="asset.filename"
-                class="w-full h-44 object-cover group-hover:scale-105 transition duration-300"
-              />
+              <!-- Media Preview Viewport -->
+              <div class="relative w-full h-44 bg-slate-950 overflow-hidden cursor-pointer" @click="openEditor(asset)">
+                <video
+                  v-if="isVideo(asset)"
+                  :src="asset.path"
+                  class="w-full h-full object-cover group-hover:scale-105 transition duration-300 opacity-90"
+                  muted
+                  preload="metadata"
+                ></video>
+                <img
+                  v-else
+                  :src="asset.path"
+                  :alt="asset.filename"
+                  class="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                />
+
+                <!-- Media Type Badge -->
+                <div class="absolute top-2.5 left-2.5 bg-slate-900/80 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-mono text-white flex items-center gap-1.5 shadow-sm">
+                  <VideoIcon v-if="isVideo(asset)" class="w-3 h-3 text-[#9EE493]" />
+                  <ImageIcon v-else class="w-3 h-3 text-[#9EE493]" />
+                  <span>{{ isVideo(asset) ? 'Video' : 'Photo' }}</span>
+                </div>
+
+                <!-- Hover Overlay with Launch Studio -->
+                <div class="absolute inset-0 bg-slate-950/40 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                  <button
+                    @click.stop="openEditor(asset)"
+                    class="px-4 py-2 rounded-full bg-[#9EE493] text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md hover:scale-105 transition"
+                  >
+                    <SlidersHorizontal class="w-3.5 h-3.5 text-slate-950" />
+                    <span>Open in Editor</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Card Details & Actions Footer -->
               <div class="p-3.5 bg-white border-t border-slate-100 flex items-center justify-between gap-3">
                 <div class="space-y-0.5 overflow-hidden">
-                  <p class="text-xs font-semibold text-slate-900 truncate">{{ asset.filename }}</p>
+                  <p class="text-xs font-semibold text-slate-900 truncate" :title="asset.filename">
+                    {{ asset.filename }}
+                  </p>
                   <div class="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
                     <span v-if="asset.width && asset.height">{{ asset.width }}×{{ asset.height }}</span>
                     <span class="text-emerald-700 font-medium">{{ asset.is_ai_generated ? 'AI Generated' : 'Uploaded' }}</span>
                   </div>
                 </div>
 
-                <button
-                  @click="deleteAsset(asset.id)"
-                  class="p-2 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                  title="Remove asset"
-                >
-                  <Trash2 class="w-3.5 h-3.5" />
-                </button>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button
+                    @click="openEditor(asset)"
+                    class="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 transition"
+                    title="Edit in Studio"
+                  >
+                    <Wand2 class="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    @click="deleteAsset(asset.id)"
+                    class="p-1.5 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                    title="Remove asset"
+                  >
+                    <Trash2 class="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -291,5 +363,13 @@ const deleteAsset = async (id: string) => {
         </div>
       </div>
     </div>
+
+    <!-- Interactive Studio Photo & Video Editor Modal -->
+    <MediaEditorModal
+      :isOpen="isEditorOpen"
+      :asset="editingAsset"
+      @close="isEditorOpen = false"
+      @saved="onAssetSaved"
+    />
   </AppLayout>
 </template>

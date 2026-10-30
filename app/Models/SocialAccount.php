@@ -78,48 +78,22 @@ class SocialAccount extends Model
 
     public function getAccessTokenAttribute($value): ?string
     {
-        if (!$value) return null;
-        try {
-            return decrypt($value);
-        } catch (\Throwable $e) {
-            return $value;
-        }
+        return $value ? decrypt($value) : null;
     }
 
     public function setAccessTokenAttribute($value): void
     {
-        if (!$value) {
-            $this->attributes['access_token'] = null;
-            return;
-        }
-        try {
-            $this->attributes['access_token'] = encrypt($value);
-        } catch (\Throwable $e) {
-            $this->attributes['access_token'] = $value;
-        }
+        $this->attributes['access_token'] = $value ? encrypt($value) : null;
     }
 
     public function getRefreshTokenAttribute($value): ?string
     {
-        if (!$value) return null;
-        try {
-            return decrypt($value);
-        } catch (\Throwable $e) {
-            return $value;
-        }
+        return $value ? decrypt($value) : null;
     }
 
     public function setRefreshTokenAttribute($value): void
     {
-        if (!$value) {
-            $this->attributes['refresh_token'] = null;
-            return;
-        }
-        try {
-            $this->attributes['refresh_token'] = encrypt($value);
-        } catch (\Throwable $e) {
-            $this->attributes['refresh_token'] = $value;
-        }
+        $this->attributes['refresh_token'] = $value ? encrypt($value) : null;
     }
 
     public function user(): BelongsTo

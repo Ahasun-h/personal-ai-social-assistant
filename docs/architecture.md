@@ -50,7 +50,6 @@ personal-ai-social-assistant/
 │   │   │   └── AnalyticsController.php
 │   ├── Jobs/
 │   │   ├── PublishPostJob.php
-│   │   ├── ProcessMediaTranscodeJob.php
 │   │   ├── FetchTrendItemsJob.php
 │   │   └── SyncSocialMetricsJob.php
 │   ├── Models/
@@ -71,19 +70,22 @@ personal-ai-social-assistant/
 │   │   ├── Notification.php
 │   │   └── AuditLog.php
 │   └── Services/
-│       ├── AI/ClaudeTextGenerator.php
-│       ├── AI/OpenAiTextGenerator.php
+│       ├── AI/GeminiTextGenerator.php
 │       ├── AI/FluxMediaGenerator.php
 │       ├── Social/Twitter/TwitterPublisher.php
 │       ├── Social/LinkedIn/LinkedInPublisher.php
-│       └── Trends/RssTrendSource.php
+│       ├── Trends/RssTrendSource.php
+│       ├── Trends/HackerNewsTrendSource.php
+│       └── CostControlService.php
 ├── config/
 │   ├── horizon.php
 │   ├── services.php
-│   └── medialibrary.php
+│   ├── social.php
+│   └── auth.php
 ├── database/
 │   └── migrations/
-│       └── 2026_10_30_000001_create_social_assistant_3nf_schema.php
+│       ├── 2026_10_30_000001_create_all_3nf_social_assistant_tables.php
+│       └── 2026_10_30_000002_create_personal_access_tokens_table.php
 ├── resources/
 │   ├── js/
 │   │   ├── Components/

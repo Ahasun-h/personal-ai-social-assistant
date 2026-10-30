@@ -1,6 +1,6 @@
 # Personal AI Social Media Assistant (LinkedIn & X)
 
-[![Pest Tests](https://img.shields.io/badge/tests-20%20passed%20%7C%2050%20assertions-success?style=for-the-badge&logo=php)](file:///Users/sva-pc-566/Desktop/untitled%20folder)
+[![Pest Tests](https://img.shields.io/badge/tests-27%20passed%20%7C%2081%20assertions-success?style=for-the-badge&logo=php)](file:///Users/sva-pc-566/Desktop/untitled%20folder)
 [![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?style=for-the-badge&logo=laravel)](https://laravel.com)
 [![Vue 3](https://img.shields.io/badge/Vue-3.4%20(Inertia%20v2)-4FC08D?style=for-the-badge&logo=vue.js)](https://vuejs.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4%20Dark%20Canvas-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com)
@@ -185,19 +185,29 @@ Formal OpenAPI 3.1 contract is maintained at [`docs/openapi.yaml`](file:///Users
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/login` | Single-user authentication & token issue |
+| `POST` | `/api/v1/auth/login` | Single-user authentication & Bearer token issue |
 | `GET` | `/api/v1/accounts` | Active LinkedIn and X account tokens & health |
 | `GET` | `/api/v1/trends/items` | Ranked trend intelligence stream |
+| `PATCH` | `/api/v1/trends/items/{id}/dismiss` | Dismiss irrelevant trend topic |
+| `POST` | `/api/v1/trends/sync` | Trigger asynchronous trend source fetch |
 | `GET` | `/api/v1/drafts` | Draft posts across LinkedIn and X |
-| `POST` | `/api/v1/drafts/ai/generate` | Multi-format AI draft generation |
+| `POST` | `/api/v1/drafts/ai/generate` | Multi-format AI draft generation with budget guardrails |
 | `POST` | `/api/v1/drafts/{id}/approve` | Mandatory human owner approval gate |
 | `POST` | `/api/v1/drafts/{id}/publish-now` | Immediate dispatch to platform APIs |
-| `POST` | `/api/v1/media/ai/generate` | Flux/DALL-E aspect-ratio media generation |
+| `GET` | `/api/v1/media` | Media studio library collection |
+| `POST` | `/api/v1/media/upload` | Upload local image or video file |
+| `POST` | `/api/v1/media/ai/generate` | Aspect-ratio presets (1:1, 16:9, 4:5) media generation |
+| `GET` | `/api/v1/calendar/schedules` | Calendar schedules within date window |
+| `PATCH` | `/api/v1/calendar/schedules/{id}/reschedule` | Reschedule scheduled post |
+| `GET` | `/api/v1/inbox/comments` | Social feedback & sentiment stream |
+| `POST` | `/api/v1/inbox/comments/{id}/reply` | Dispatch approved comment response |
 | `GET` | `/api/v1/analytics/dashboard` | Aggregated impressions, reach & engagement |
 | `GET` | `/api/v1/settings` | Brand voice rules & cost caps |
+| `GET` | `/api/v1/audits` | Immutable audit event trail |
 
 ---
 
-## 🛡️ License
+## 🛡️ License & Acknowledgements
 
-Proprietary / Private - Personal Social Assistant Engine.
+* **Mixpost Lite (MIT)**: Components of Twitter OAuth token handling, publishing job queues, and media structures are adapted from [Mixpost Lite](https://github.com/inovector/mixpost) under the MIT License. Copyright (c) Inovector. See [`LICENSE.mixpost`](file:///Users/sva-pc-566/Desktop/untitled%20folder/LICENSE.mixpost).
+* **Application Code**: Licensed under the MIT License. See [`LICENSE`](file:///Users/sva-pc-566/Desktop/untitled%20folder/LICENSE).

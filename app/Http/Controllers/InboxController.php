@@ -28,3 +28,4 @@ class InboxController extends Controller
         ]);
     }
 }
+

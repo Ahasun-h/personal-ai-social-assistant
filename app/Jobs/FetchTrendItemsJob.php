@@ -17,7 +17,10 @@ class FetchTrendItemsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(public readonly ?string $sourceId = null) {}
+    public function __construct(public readonly ?string $sourceId = null)
+    {
+        $this->onQueue('trends');
+    }
 
     public function handle(RssTrendSource $rss, HackerNewsTrendSource $hn): void
     {

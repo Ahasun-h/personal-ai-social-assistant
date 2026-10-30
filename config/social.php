@@ -31,8 +31,8 @@ return [
     ],
 
     'budget' => [
-        'daily_cap_usd' => (float) env('BUDGET_DAILY_CAP_USD', 10.00),
-        'monthly_cap_usd' => (float) env('BUDGET_MONTHLY_CAP_USD', 150.00),
+        'daily_cap_usd' => (float) env('DAILY_BUDGET_CAP_USD', env('BUDGET_DAILY_CAP_USD', 10.00)),
+        'monthly_cap_usd' => (float) env('MONTHLY_BUDGET_CAP_USD', env('BUDGET_MONTHLY_CAP_USD', 150.00)),
         'warning_threshold' => 0.80, // Warn at 80% usage
     ],
 

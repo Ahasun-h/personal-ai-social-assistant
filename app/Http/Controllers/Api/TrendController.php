@@ -36,3 +36,4 @@ class TrendController extends Controller
         ]);
     }
 }
+

@@ -35,3 +35,4 @@ class MediaController extends Controller
         ], 201);
     }
 }
+

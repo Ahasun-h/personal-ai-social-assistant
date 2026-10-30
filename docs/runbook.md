@@ -5,13 +5,11 @@
 The system operates 4 primary daemons in production:
 1. **PHP-FPM (Port 9000):** Processes incoming web and REST API requests.
 2. **Nginx (Port 80/443):** Web server handling TLS termination, static asset delivery, and proxy pass.
-3. **Laravel Horizon:** Manages 6 Redis queue pools with fine-grained worker isolation:
-   - `publish`: Priority 1, high reliability, max 3 retries, exponential backoff.
-   - `generate-text`: Priority 2, for LLM calls (Gemini / OpenAI).
-   - `media-image`: Priority 3, asynchronous image generation (Flux / DALL-E 3).
-   - `media-video`: Priority 4, FFmpeg video transcoding and chunked uploads.
-   - `trends`: Priority 5, background RSS and web trend polling.
-   - `analytics`: Priority 6, hourly/daily social metrics polling.
+3. **Laravel Horizon:** Manages 4 supervisor worker pools over Redis with fine-grained queue isolation:
+   - `supervisor-publisher`: Processes `publish` and `publish-critical` (Priority 1, high reliability, max 3 retries, exponential backoff).
+   - `supervisor-ai`: Processes `generate-text` and `ai-generation` (Priority 2, for LLM calls with 180s timeout).
+   - `supervisor-media`: Processes `media-image`, `media-video`, and `media-transcode` (Priority 3 & 4, image generation and chunked uploads with 300s timeout).
+   - `supervisor-background`: Processes `trends`, `trend-sync`, `analytics`, `analytics-sync`, and `default` (Priority 5 & 6, RSS polling, metrics collection, and notifications).
 4. **Cron Scheduler:** Dispatches `schedule:run` every minute to trigger trend discovery and post publishing.
 
 ---

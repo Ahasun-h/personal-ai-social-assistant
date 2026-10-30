@@ -32,7 +32,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $token = 'tk_' . Str::random(40);
+        $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -52,7 +52,7 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = User::first(); // Single-user personal application
+        $user = $request->user() ?? User::first();
 
         if (!$user) {
             return response()->json([
@@ -77,8 +77,10 @@ class AuthController extends Controller
         ]);
     }
 
-    public function logout(): JsonResponse
+    public function logout(Request $request): JsonResponse
     {
+        $request->user()?->currentAccessToken()?->delete();
+
         return response()->json([
             'success' => true,
             'data' => ['message' => 'Logged out successfully'],

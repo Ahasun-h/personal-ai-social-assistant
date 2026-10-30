@@ -124,4 +124,44 @@ class ApiEndpointsTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
     }
+
+    public function test_audits_endpoint_returns_logs(): void
+    {
+        \App\Models\AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'test_audit_event',
+            'auditable_type' => \App\Models\User::class,
+            'auditable_id' => $this->user->id,
+            'ip_address' => '127.0.0.1',
+        ]);
+
+        $response = $this->getJson('/api/v1/audits');
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure(['data', 'meta']);
+    }
+
+    public function test_trend_dismiss_endpoint(): void
+    {
+        $source = TrendSource::create([
+            'user_id' => $this->user->id,
+            'name' => 'Tech RSS',
+            'driver' => 'rss',
+            'source_identifier' => 'https://example.com/rss',
+            'is_active' => true,
+        ]);
+
+        $item = TrendItem::create([
+            'trend_source_id' => $source->id,
+            'external_id' => 'rss_123',
+            'title' => 'Dismiss Me',
+            'url' => 'https://example.com/item',
+            'status' => 'new',
+        ]);
+
+        $response = $this->patchJson("/api/v1/trends/items/{$item->id}/dismiss");
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.is_dismissed', true);
+    }
 }

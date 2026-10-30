@@ -16,6 +16,11 @@ class SyncSocialMetricsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public function __construct()
+    {
+        $this->onQueue('analytics');
+    }
+
     public function handle(TwitterPublisher $twitter, LinkedInPublisher $linkedIn): void
     {
         // Find published posts in the last 7 days

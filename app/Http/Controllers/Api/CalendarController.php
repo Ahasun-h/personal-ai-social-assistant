@@ -57,3 +57,4 @@ class CalendarController extends Controller
         ], 201);
     }
 }
+

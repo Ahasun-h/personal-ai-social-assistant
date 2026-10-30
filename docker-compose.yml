@@ -32,8 +32,14 @@ services:
       X_CLIENT_SECRET: "${X_CLIENT_SECRET}"
       X_REDIRECT_URI: "${APP_URL}/api/v1/accounts/oauth/x_twitter/callback"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+      REPLICATE_API_TOKEN: "${REPLICATE_API_TOKEN}"
+      FAL_KEY: "${FAL_KEY}"
       DAILY_BUDGET_CAP_USD: "${DAILY_BUDGET_CAP_USD:-10.00}"
       MONTHLY_BUDGET_CAP_USD: "${MONTHLY_BUDGET_CAP_USD:-150.00}"
+      DAILY_LLM_BUDGET_USD: "${DAILY_LLM_BUDGET_USD:-10.00}"
+      MONTHLY_LLM_BUDGET_USD: "${MONTHLY_LLM_BUDGET_USD:-150.00}"
     volumes:
       - media_storage:/var/www/html/storage/app/public
     depends_on:

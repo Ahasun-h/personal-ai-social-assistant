@@ -32,7 +32,9 @@ class PublishPostJob implements ShouldQueue
         public readonly string $scheduleId,
         public readonly string $draftId,
         public readonly string $socialAccountId
-    ) {}
+    ) {
+        $this->onQueue('publish');
+    }
 
     public function handle(TwitterPublisher $twitterPublisher, LinkedInPublisher $linkedInPublisher): void
     {

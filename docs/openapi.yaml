@@ -226,6 +226,37 @@ paths:
                   success: { type: boolean, example: true }
                   data: { $ref: '#/components/schemas/TrendItem' }
 
+  /trends/items/{id}/dismiss:
+    patch:
+      summary: Dismiss a trend intelligence item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: '#/components/schemas/TrendItem' }
+
+  /trends/sync:
+    post:
+      summary: Trigger immediate background synchronization of all trend sources
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: 'Trend sources sync dispatched to Horizon queue.' }
+
   /drafts:
     get:
       summary: List content drafts
@@ -342,6 +373,21 @@ paths:
                   success: { type: boolean, example: true }
                   data: { $ref: '#/components/schemas/Draft' }
 
+  /media:
+    get:
+      summary: List stored media assets
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/MediaAsset' }
+
   /media/upload:
     post:
       summary: Upload a media asset (Image, Video, PDF Document)
@@ -418,6 +464,33 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Schedule' }
 
+  /calendar/schedules/{id}/reschedule:
+    patch:
+      summary: Reschedule a planned social dispatch
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scheduled_for]
+              properties:
+                scheduled_for: { type: string, format: date-time }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: '#/components/schemas/Schedule' }
+
   /drafts/{id}/publish-now:
     post:
       summary: Immediately dispatch draft to linked social accounts
@@ -462,6 +535,33 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Comment' }
                   meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+  /inbox/comments/{id}/reply:
+    post:
+      summary: Send or queue an approved reply to an inbound comment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reply_text]
+              properties:
+                reply_text: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: '#/components/schemas/Comment' }
 
   /analytics/dashboard:
     get:

@@ -14,6 +14,8 @@ import {
   Trash2,
   Plus,
   Save,
+  ExternalLink,
+  X as CloseIcon,
 } from 'lucide-vue-next';
 
 interface Account {
@@ -63,6 +65,17 @@ const budgetForm = ref({
 
 const isSaving = ref(false);
 const saveSuccess = ref(false);
+const showConnectModal = ref(false);
+
+const newAccount = ref({
+  provider: 'linkedin',
+  name: '',
+  username: '',
+  access_token: '',
+  refresh_token: '',
+});
+
+const isConnecting = ref(false);
 
 const saveSettings = () => {
   isSaving.value = true;
@@ -99,13 +112,45 @@ const disconnectAccount = (id: string) => {
     });
   }
 };
+
+const startOAuth = (provider: 'linkedin' | 'x_twitter') => {
+  fetch(`/api/v1/accounts/oauth/${provider}/redirect`)
+    .then((r) => r.json())
+    .then((data) => {
+      if (data.auth_url) {
+        window.location.href = data.auth_url;
+      }
+    });
+};
+
+const saveManualAccount = () => {
+  if (!newAccount.value.name || !newAccount.value.username || !newAccount.value.access_token) {
+    alert('Please fill in Name, Username, and Access Token.');
+    return;
+  }
+  isConnecting.value = true;
+  fetch('/api/v1/accounts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newAccount.value),
+  })
+    .then((r) => r.json())
+    .then(() => {
+      isConnecting.value = false;
+      showConnectModal.value = false;
+      router.reload();
+    })
+    .catch(() => {
+      isConnecting.value = false;
+    });
+};
 </script>
 
 <template>
   <AppLayout title="Settings & Guardrails">
     <Head title="Settings & Guardrails" />
 
-    <div class="p-8 max-w-7xl mx-auto space-y-6">
+    <div class="p-2 max-w-7xl mx-auto space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between">
         <div>
@@ -118,14 +163,25 @@ const disconnectAccount = (id: string) => {
           </p>
         </div>
 
-        <button
-          @click="saveSettings"
-          :disabled="isSaving"
-          class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-sm text-white shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
-        >
-          <Save class="w-4 h-4" />
-          <span>{{ isSaving ? 'Saving...' : 'Save Changes' }}</span>
-        </button>
+        <div class="flex items-center gap-3">
+          <button
+            v-if="activeTab === 'accounts'"
+            @click="showConnectModal = true"
+            class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-sm border border-white/10 transition"
+          >
+            <Plus class="w-4 h-4 text-indigo-400" />
+            <span>Connect Account</span>
+          </button>
+
+          <button
+            @click="saveSettings"
+            :disabled="isSaving"
+            class="flex items-center gap-2 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-sm text-white shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
+          >
+            <Save class="w-4 h-4" />
+            <span>{{ isSaving ? 'Saving...' : 'Save Changes' }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- Success Alert Banner -->
@@ -149,7 +205,7 @@ const disconnectAccount = (id: string) => {
           ]"
         >
           <Radio class="w-4 h-4" />
-          Connected Accounts
+          Connected Accounts ({{ accounts.length }})
         </button>
 
         <button
@@ -185,7 +241,7 @@ const disconnectAccount = (id: string) => {
           <div
             v-for="acc in accounts"
             :key="acc.id"
-            class="bg-surface-elevated/60 border border-white/10 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden"
+            class="bg-surface-elevated/70 border border-white/10 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden space-y-4"
           >
             <div class="flex items-start justify-between">
               <div class="flex items-center gap-4">
@@ -211,18 +267,25 @@ const disconnectAccount = (id: string) => {
 
               <div class="flex items-center gap-2">
                 <span
+                  v-if="acc.is_active"
                   class="flex items-center gap-1.5 text-xs font-mono font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
                 >
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Active
+                  Connected
+                </span>
+                <span
+                  v-else
+                  class="text-xs font-mono font-medium px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400"
+                >
+                  Disconnected
                 </span>
               </div>
             </div>
 
-            <div class="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
+            <div class="pt-4 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
               <div class="flex items-center gap-1">
-                <span>Token Status:</span>
-                <span class="text-gray-200 font-mono">Valid (52 days remaining)</span>
+                <span>OAuth Token:</span>
+                <span class="text-gray-200 font-mono">Encrypted (AES-256-GCM)</span>
               </div>
 
               <button
@@ -235,11 +298,44 @@ const disconnectAccount = (id: string) => {
             </div>
           </div>
         </div>
+
+        <!-- Connection Quick Action Cards -->
+        <div class="border border-white/10 rounded-2xl p-6 bg-gradient-to-r from-indigo-950/20 to-blue-950/20 space-y-4">
+          <h3 class="font-bold text-white text-sm">Add Social Media Channel</h3>
+          <p class="text-xs text-gray-400">
+            Connect your personal LinkedIn profile or X developer account. The application uses official OAuth 2.0 PKCE with automated token refresh.
+          </p>
+          <div class="flex flex-wrap gap-3 pt-2">
+            <button
+              @click="startOAuth('linkedin')"
+              class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition shadow-lg shadow-blue-600/20"
+            >
+              <ExternalLink class="w-4 h-4" />
+              <span>OAuth Connect LinkedIn</span>
+            </button>
+
+            <button
+              @click="startOAuth('x_twitter')"
+              class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs border border-white/10 transition"
+            >
+              <ExternalLink class="w-4 h-4" />
+              <span>OAuth Connect X (Twitter)</span>
+            </button>
+
+            <button
+              @click="showConnectModal = true"
+              class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/40 text-indigo-300 font-semibold text-xs border border-indigo-500/30 transition"
+            >
+              <Key class="w-4 h-4" />
+              <span>Enter Developer Token Manually</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Tab 2: Brand Voice Vault -->
       <div v-if="activeTab === 'brand'" class="space-y-6">
-        <div class="bg-surface-elevated/60 border border-white/10 rounded-2xl p-6 backdrop-blur-sm space-y-5">
+        <div class="bg-surface-elevated/70 border border-white/10 rounded-2xl p-6 backdrop-blur-sm space-y-5">
           <div>
             <label class="block text-xs font-mono uppercase tracking-wider text-gray-400 mb-2">
               Primary Brand Persona & Tone
@@ -281,7 +377,7 @@ const disconnectAccount = (id: string) => {
       <!-- Tab 3: Budget & Metered Guardrails -->
       <div v-if="activeTab === 'budget'" class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="bg-surface-elevated/60 border border-white/10 rounded-2xl p-6 backdrop-blur-sm space-y-4">
+          <div class="bg-surface-elevated/70 border border-white/10 rounded-2xl p-6 backdrop-blur-sm space-y-4">
             <h3 class="font-semibold text-white flex items-center gap-2">
               <Zap class="w-4 h-4 text-amber-400" />
               LLM Inference Budget Caps
@@ -289,7 +385,7 @@ const disconnectAccount = (id: string) => {
 
             <div class="space-y-3">
               <div>
-                <label class="block text-xs text-gray-400 mb-1">Daily Cap ($ USD)</label>
+                <label class="block text-xs text-gray-400 mb-1 font-mono">Daily Cap ($ USD)</label>
                 <input
                   v-model.number="budgetForm.dailyLlmCap"
                   type="number"
@@ -299,7 +395,7 @@ const disconnectAccount = (id: string) => {
               </div>
 
               <div>
-                <label class="block text-xs text-gray-400 mb-1">Monthly Cap ($ USD)</label>
+                <label class="block text-xs text-gray-400 mb-1 font-mono">Monthly Cap ($ USD)</label>
                 <input
                   v-model.number="budgetForm.monthlyLlmCap"
                   type="number"
@@ -310,15 +406,15 @@ const disconnectAccount = (id: string) => {
             </div>
           </div>
 
-          <div class="bg-surface-elevated/60 border border-white/10 rounded-2xl p-6 backdrop-blur-sm space-y-4">
+          <div class="bg-surface-elevated/70 border border-white/10 rounded-2xl p-6 backdrop-blur-sm space-y-4">
             <h3 class="font-semibold text-white flex items-center gap-2">
               <Key class="w-4 h-4 text-cyan-400" />
-              Media Generation Caps
+              Media & X Metered Caps
             </h3>
 
             <div class="space-y-3">
               <div>
-                <label class="block text-xs text-gray-400 mb-1">Daily Media Cap ($ USD)</label>
+                <label class="block text-xs text-gray-400 mb-1 font-mono">Daily Media Cap ($ USD)</label>
                 <input
                   v-model.number="budgetForm.dailyMediaCap"
                   type="number"
@@ -328,7 +424,7 @@ const disconnectAccount = (id: string) => {
               </div>
 
               <div>
-                <label class="block text-xs text-gray-400 mb-1">Daily X Dispatch Limit</label>
+                <label class="block text-xs text-gray-400 mb-1 font-mono">Daily X Dispatch Limit</label>
                 <input
                   v-model.number="budgetForm.dailyXPosts"
                   type="number"
@@ -337,6 +433,78 @@ const disconnectAccount = (id: string) => {
                 />
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual Connection Modal -->
+      <div
+        v-if="showConnectModal"
+        class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      >
+        <div class="bg-surface-elevated border border-white/10 rounded-2xl p-6 max-w-lg w-full space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-white/10">
+            <h3 class="font-bold text-white text-base">Connect Account (Manual Vault)</h3>
+            <button @click="showConnectModal = false" class="text-gray-400 hover:text-white">
+              <CloseIcon class="w-5 h-5" />
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs text-gray-400 mb-1">Platform</label>
+              <select
+                v-model="newAccount.provider"
+                class="w-full bg-[#0B0F19] border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
+              >
+                <option value="linkedin">LinkedIn</option>
+                <option value="x_twitter">X (Twitter)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs text-gray-400 mb-1">Display Name</label>
+              <input
+                v-model="newAccount.name"
+                placeholder="e.g. Alex Rivera"
+                class="w-full bg-[#0B0F19] border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs text-gray-400 mb-1">Username / Handle</label>
+              <input
+                v-model="newAccount.username"
+                placeholder="e.g. alexrivera_tech"
+                class="w-full bg-[#0B0F19] border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-mono"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs text-gray-400 mb-1">Access Token / Bearer Token</label>
+              <textarea
+                v-model="newAccount.access_token"
+                rows="3"
+                placeholder="Paste token string..."
+                class="w-full bg-[#0B0F19] border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-mono"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3 pt-3 border-t border-white/10">
+            <button
+              @click="showConnectModal = false"
+              class="px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white"
+            >
+              Cancel
+            </button>
+            <button
+              @click="saveManualAccount"
+              :disabled="isConnecting"
+              class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-sm text-white shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
+            >
+              {{ isConnecting ? 'Saving...' : 'Save & Encrypt' }}
+            </button>
           </div>
         </div>
       </div>

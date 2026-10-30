@@ -105,3 +105,4 @@ class AiGenerationController extends Controller
         ], 201);
     }
 }
+

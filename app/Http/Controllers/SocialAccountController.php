@@ -41,9 +41,20 @@ class SocialAccountController extends Controller
             ], 400);
         }
 
+        $state = \Illuminate\Support\Str::random(40);
+        $verifier = \Illuminate\Support\Str::random(64);
+        $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+        \Illuminate\Support\Facades\Cache::put("oauth_pkce:{$state}", $verifier, 600);
+
+        $linkedinClientId = config('services.linkedin.client_id', env('LINKEDIN_CLIENT_ID'));
+        $linkedinRedirect = config('services.linkedin.redirect', env('LINKEDIN_REDIRECT_URI', env('APP_URL') . '/api/v1/accounts/oauth/linkedin/callback'));
+
+        $twitterClientId = config('services.twitter.client_id', env('X_CLIENT_ID', env('TWITTER_CLIENT_ID')));
+        $twitterRedirect = config('services.twitter.redirect', env('X_REDIRECT_URI', env('APP_URL') . '/api/v1/accounts/oauth/x_twitter/callback'));
+
         $url = $provider === 'linkedin'
-            ? "https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=" . env('LINKEDIN_CLIENT_ID') . "&redirect_uri=" . urlencode(env('LINKEDIN_REDIRECT_URI')) . "&scope=openid%20profile%20email%20w_member_social"
-            : "https://twitter.com/i/oauth2/authorize?response_type=code&client_id=" . env('TWITTER_CLIENT_ID') . "&redirect_uri=" . urlencode(env('APP_URL') . '/api/v1/accounts/oauth/x_twitter/callback') . "&scope=tweet.read%20tweet.write%20users.read%20offline.access&code_challenge=challenge&code_challenge_method=plain";
+            ? "https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id={$linkedinClientId}&redirect_uri=" . urlencode($linkedinRedirect) . "&scope=openid%20profile%20email%20w_member_social&state={$state}"
+            : "https://twitter.com/i/oauth2/authorize?response_type=code&client_id={$twitterClientId}&redirect_uri=" . urlencode($twitterRedirect) . "&scope=tweet.read%20tweet.write%20users.read%20offline.access&state={$state}&code_challenge={$challenge}&code_challenge_method=S256";
 
         return response()->json([
             'success' => true,

@@ -44,7 +44,7 @@ return [
     'defaults' => [
         'supervisor-publisher' => [
             'connection' => 'redis',
-            'queue' => ['publish-critical'],
+            'queue' => ['publish', 'publish-critical'],
             'balance' => 'simple',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 5,
@@ -57,16 +57,25 @@ return [
         ],
         'supervisor-ai' => [
             'connection' => 'redis',
-            'queue' => ['ai-generation'],
+            'queue' => ['generate-text', 'ai-generation'],
             'balance' => 'auto',
             'maxProcesses' => 5,
             'memory' => 512,
             'tries' => 2,
             'timeout' => 180,
         ],
+        'supervisor-media' => [
+            'connection' => 'redis',
+            'queue' => ['media-image', 'media-video', 'media-transcode'],
+            'balance' => 'auto',
+            'maxProcesses' => 3,
+            'memory' => 512,
+            'tries' => 2,
+            'timeout' => 300,
+        ],
         'supervisor-background' => [
             'connection' => 'redis',
-            'queue' => ['media-transcode', 'trend-sync', 'analytics-sync', 'default'],
+            'queue' => ['trends', 'trend-sync', 'analytics', 'analytics-sync', 'default'],
             'balance' => 'auto',
             'maxProcesses' => 5,
             'memory' => 256,

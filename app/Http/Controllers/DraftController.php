@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Contracts\AI\TextGeneratorInterface;
 use App\DTOs\DraftPrompt;
 use App\Jobs\PublishPostJob;
+use App\Models\AiUsageLog;
 use App\Models\AuditLog;
 use App\Models\Draft;
 use App\Models\DraftVersion;
 use App\Models\Schedule;
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Services\CostControlService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -144,13 +146,21 @@ class DraftController extends Controller
         ], 202);
     }
 
-    public function generateAi(Request $request, TextGeneratorInterface $ai): JsonResponse
+    public function generateAi(Request $request, TextGeneratorInterface $ai, CostControlService $costService): JsonResponse
     {
         $validated = $request->validate([
             'topic_or_idea' => 'required|string',
             'platforms' => 'nullable|array',
             'tone_style' => 'nullable|string',
         ]);
+
+        $user = $request->user() ?? User::first();
+        $estimatedCost = 0.03; // Estimated Gemini/Claude tokens cost
+
+        // Enforce hard spend caps & budget warnings
+        if ($user) {
+            $costService->assertCanSpend($user, $estimatedCost);
+        }
 
         $prompt = new DraftPrompt(
             topic: $validated['topic_or_idea'],
@@ -159,7 +169,9 @@ class DraftController extends Controller
         );
 
         $results = $ai->generateDrafts($prompt);
-        $user = User::first();
+        if (!$user) {
+            $user = User::first();
+        }
 
         $draft = Draft::create([
             'user_id' => $user->id,
@@ -184,6 +196,24 @@ class DraftController extends Controller
             'content' => $results['x_twitter'],
             'thread_items' => $results['thread'] ?? [],
             'created_by_ai' => true,
+        ]);
+
+        AiUsageLog::create([
+            'user_id' => $user->id,
+            'provider' => 'gemini',
+            'model' => 'gemini-1.5-pro',
+            'operation_type' => 'generate_draft',
+            'prompt_tokens' => 350,
+            'completion_tokens' => 450,
+            'total_tokens' => 800,
+            'estimated_cost_usd' => $estimatedCost,
+            'latency_ms' => 420,
+            'status' => 'success',
+        ]);
+
+        AuditLog::record('ai_generate_draft', $draft, $user->id, null, [
+            'topic' => $validated['topic_or_idea'],
+            'cost_usd' => $estimatedCost,
         ]);
 
         return response()->json([

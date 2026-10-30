@@ -57,6 +57,7 @@ class TrendController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Trend item dismissed.',
+            'data' => $item,
         ]);
     }
 

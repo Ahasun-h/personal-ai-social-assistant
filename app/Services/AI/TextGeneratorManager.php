@@ -43,7 +43,7 @@ class TextGeneratorManager
             ),
             default => new GeminiTextGenerator(
                 apiKey: $providerSettings['api_key'] ?? null,
-                model: $providerSettings['model'] ?? 'gemini-1.5-pro'
+                model: $providerSettings['model'] ?? 'gemini-3.1-flash-lite'
             ),
         };
     }
@@ -91,7 +91,7 @@ class TextGeneratorManager
                 'gemini' => [
                     'label' => 'Google Gemini',
                     'api_key' => env('GEMINI_API_KEY', ''),
-                    'model' => env('GEMINI_MODEL', 'gemini-1.5-pro'),
+                    'model' => env('GEMINI_MODEL', 'gemini-3.5-flash'),
                     'is_configured' => !empty(env('GEMINI_API_KEY')),
                 ],
                 'openai' => [
@@ -163,7 +163,7 @@ class TextGeneratorManager
         }
 
         try {
-            $testClient = new \GuzzleHttp\Client(['timeout' => 10, 'connect_timeout' => 5]);
+            $testClient = new \GuzzleHttp\Client(['timeout' => 45, 'connect_timeout' => 10]);
 
             $driver = match ($provider) {
                 'openai' => new OpenAiTextGenerator(
@@ -193,7 +193,7 @@ class TextGeneratorManager
                 ),
                 default => new GeminiTextGenerator(
                     apiKey: $credentials['api_key'] ?? null,
-                    model: $credentials['model'] ?? 'gemini-1.5-flash',
+                    model: $credentials['model'] ?? 'gemini-3.1-flash-lite',
                     client: $testClient
                 ),
             };

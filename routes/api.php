@@ -50,6 +50,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::post('/media/upload', [MediaController::class, 'upload']);
         Route::delete('/media/{id}', [MediaController::class, 'destroy']);
         Route::post('/media/ai/generate', [MediaController::class, 'generateAi']);
+        Route::post('/media/ai/video-generate', [MediaController::class, 'generateVideoAi']);
 
         // Calendar & Schedules
         Route::get('/calendar/schedules', [CalendarController::class, 'index']);

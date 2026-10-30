@@ -55,7 +55,23 @@ const isEditorOpen = ref(false);
 const editingAsset = ref<MediaAsset | null>(null);
 
 const openEditor = (asset: MediaAsset) => {
-  editingAsset.value = asset;
+  editingAsset.value = {
+    ...asset,
+    path: resolveAssetUrl(asset.path),
+  };
+  isEditorOpen.value = true;
+};
+
+const openBlankStudio = () => {
+  editingAsset.value = {
+    id: 'studio-new',
+    filename: 'executive-design.png',
+    path: '/storage/media/monolith-vs-microservices-arch.png',
+    mime_type: 'image/png',
+    width: 1200,
+    height: 675,
+    is_ai_generated: true,
+  };
   isEditorOpen.value = true;
 };
 
@@ -72,13 +88,26 @@ const isVideo = (asset: MediaAsset) => {
   return ['mp4', 'mov', 'webm'].includes(ext || '');
 };
 
+const resolveAssetUrl = (path: string) => {
+  if (!path) return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080&q=80';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (path.startsWith('/storage/')) return path;
+  if (path.startsWith('storage/')) return '/' + path;
+  if (path.startsWith('media/')) return '/storage/' + path;
+  if (path.startsWith('/')) return path;
+  return '/storage/' + path;
+};
+
 const generate = async () => {
   if (!prompt.value) return;
   isGenerating.value = true;
   try {
     const res = await fetch('/api/v1/media/ai/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: JSON.stringify({
         prompt: prompt.value,
         aspect_ratio: aspectRatio.value,
@@ -89,8 +118,12 @@ const generate = async () => {
       uploadMessage.value = { type: 'success', text: 'Asset generated and added to vault!' };
       router.reload();
     } else {
-      const err = await res.json();
-      uploadMessage.value = { type: 'error', text: err.message || 'Generation failed' };
+      let msg = 'Generation failed';
+      try {
+        const err = await res.json();
+        msg = err.message || msg;
+      } catch {}
+      uploadMessage.value = { type: 'error', text: msg };
     }
   } catch (e: any) {
     uploadMessage.value = { type: 'error', text: e.message };
@@ -113,6 +146,9 @@ const handleFileUpload = async (event: Event) => {
   try {
     const res = await fetch('/api/v1/media/upload', {
       method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+      },
       body: formData,
     });
     if (res.ok) {
@@ -163,11 +199,22 @@ const deleteAsset = async (id: string) => {
           </p>
         </div>
 
-        <!-- Notification Banner -->
-        <div v-if="uploadMessage" class="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold shadow-sm transition" :class="uploadMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'">
-          <CheckCircle2 v-if="uploadMessage.type === 'success'" class="w-4 h-4 text-emerald-600" />
-          <AlertCircle v-else class="w-4 h-4 text-rose-600" />
-          <span>{{ uploadMessage.text }}</span>
+        <div class="flex items-center gap-3">
+          <!-- Launch Creative Studio directly -->
+          <button
+            @click="openBlankStudio"
+            class="px-4 py-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition shrink-0"
+          >
+            <Sparkles class="w-4 h-4 text-[#9EE493]" />
+            <span>Open Creative Studio</span>
+          </button>
+
+          <!-- Notification Banner -->
+          <div v-if="uploadMessage" class="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold shadow-sm transition" :class="uploadMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'">
+            <CheckCircle2 v-if="uploadMessage.type === 'success'" class="w-4 h-4 text-emerald-600" />
+            <AlertCircle v-else class="w-4 h-4 text-rose-600" />
+            <span>{{ uploadMessage.text }}</span>
+          </div>
         </div>
       </div>
 
@@ -292,16 +339,17 @@ const deleteAsset = async (id: string) => {
               <div class="relative w-full h-44 bg-slate-950 overflow-hidden cursor-pointer" @click="openEditor(asset)">
                 <video
                   v-if="isVideo(asset)"
-                  :src="asset.path"
+                  :src="resolveAssetUrl(asset.path)"
                   class="w-full h-full object-cover group-hover:scale-105 transition duration-300 opacity-90"
                   muted
                   preload="metadata"
                 ></video>
                 <img
                   v-else
-                  :src="asset.path"
+                  :src="resolveAssetUrl(asset.path)"
                   :alt="asset.filename"
                   class="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                  @error="(e: any) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080&q=80'; }"
                 />
 
                 <!-- Media Type Badge -->

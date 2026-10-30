@@ -393,6 +393,13 @@ const drawCanvas = () => {
 
     ctx.drawImage(img, sx, sy, sWidth, sHeight, -w / 2, -h / 2, w, h);
     ctx.restore();
+  } else {
+    // Elegant dark slate background when image is loading or unavailable
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
   }
 
   // 2. Draw Subtle Dark Vignette / Scrim for contrast
@@ -535,17 +542,46 @@ const onCanvasMouseUp = () => {
   isDragging.value = false;
 };
 
+// Helper to resolve asset path reliably
+const resolveImagePath = (p?: string): string => {
+  if (!p) return '';
+  if (p.startsWith('http://') || p.startsWith('https://')) return p;
+  if (p.startsWith('/storage/')) return p;
+  if (p.startsWith('storage/')) return '/' + p;
+  if (p.startsWith('media/')) return '/storage/' + p;
+  if (p.startsWith('/')) return p;
+  return '/storage/' + p;
+};
+
 // Load Image
 const loadImage = () => {
+  drawCanvas(); // Render immediately with background & default layers
   if (!props.asset?.path) return;
+  const path = resolveImagePath(props.asset.path);
+
   const img = new Image();
   img.crossOrigin = 'anonymous';
-  img.src = props.asset.path;
+  img.src = path;
   img.onload = () => {
     sourceImage.value = img;
     nextTick(() => {
       drawCanvas();
     });
+  };
+  img.onerror = () => {
+    // Retry without crossOrigin attribute in case server lacks CORS headers
+    const fallback = new Image();
+    fallback.src = path;
+    fallback.onload = () => {
+      sourceImage.value = fallback;
+      nextTick(() => {
+        drawCanvas();
+      });
+    };
+    fallback.onerror = () => {
+      console.warn('Canvas source image could not be loaded:', path);
+      drawCanvas();
+    };
   };
 };
 
@@ -558,11 +594,39 @@ const exportImage = () => {
   selectedElementId.value = null;
   drawCanvas();
 
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-    const filename = `canva_${Date.now()}_${props.asset?.filename || 'design.jpg'}`;
-    emit('save', blob, filename);
-  }, 'image/jpeg', 0.95);
+  try {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        fallbackExport();
+        return;
+      }
+      const rawName = props.asset?.filename ? props.asset.filename.replace(/\.[^/.]+$/, "") : 'design';
+      const filename = `canva_${Date.now()}_${rawName}.jpg`;
+      emit('save', blob, filename);
+    }, 'image/jpeg', 0.95);
+  } catch (e) {
+    console.warn('Direct canvas export tainted by external CORS image, running clean fallback:', e);
+    fallbackExport();
+  }
+};
+
+const fallbackExport = () => {
+  const originalType = bgType.value;
+  bgType.value = 'gradient';
+  drawCanvas();
+
+  try {
+    mainCanvas.value?.toBlob((blob) => {
+      bgType.value = originalType;
+      drawCanvas();
+      if (!blob) return;
+      const rawName = props.asset?.filename ? props.asset.filename.replace(/\.[^/.]+$/, "") : 'design';
+      emit('save', blob, `canva_safe_${Date.now()}_${rawName}.jpg`);
+    }, 'image/jpeg', 0.95);
+  } catch {
+    bgType.value = originalType;
+    drawCanvas();
+  }
 };
 
 const downloadLocally = () => {
@@ -572,10 +636,26 @@ const downloadLocally = () => {
   selectedElementId.value = null;
   drawCanvas();
 
-  const link = document.createElement('a');
-  link.download = `canva_export_${Date.now()}.jpg`;
-  link.href = canvas.toDataURL('image/jpeg', 0.95);
-  link.click();
+  try {
+    const link = document.createElement('a');
+    link.download = `canva_export_${Date.now()}.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    link.click();
+  } catch (e) {
+    console.warn('Direct download tainted, using vector fallback:', e);
+    const originalType = bgType.value;
+    bgType.value = 'gradient';
+    drawCanvas();
+    try {
+      const link = document.createElement('a');
+      link.download = `canva_export_${Date.now()}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 0.95);
+      link.click();
+    } finally {
+      bgType.value = originalType;
+      drawCanvas();
+    }
+  }
 };
 
 onMounted(() => {
@@ -1010,3 +1090,4 @@ watch([targetAspect, adjustments, bgType, bgColor], () => {
 
   </div>
 </template>
+

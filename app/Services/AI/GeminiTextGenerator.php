@@ -17,7 +17,20 @@ class GeminiTextGenerator implements TextGeneratorInterface
     public function __construct(?string $apiKey = null, ?string $model = null, ?Client $client = null)
     {
         $this->apiKey = $apiKey ?? (string) env('GEMINI_API_KEY', '');
-        $this->model = $model ?? (string) env('GEMINI_MODEL', 'gemini-1.5-flash');
+        $requestedModel = $model ?? (string) env('GEMINI_MODEL', 'gemini-3.5-flash');
+
+        // Automatically normalize deprecated/legacy Gemini models to active current models
+        $modelMap = [
+            'gemini-1.5-pro' => 'gemini-3.5-flash',
+            'gemini-1.5-flash' => 'gemini-3.5-flash-lite',
+            'gemini-2.5-flash' => 'gemini-3.5-flash',
+            'gemini-2.5-flash-lite' => 'gemini-3.5-flash-lite',
+            'gemini-pro' => 'gemini-3.5-flash',
+            'gemini-flash' => 'gemini-3.5-flash-lite',
+            'gemini-3.1-flash-lite' => 'gemini-3.5-flash',
+        ];
+
+        $this->model = $modelMap[$requestedModel] ?? $requestedModel;
         $this->client = $client ?? new Client(['timeout' => 30]);
     }
 

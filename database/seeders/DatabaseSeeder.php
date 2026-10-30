@@ -138,7 +138,7 @@ class DatabaseSeeder extends Seeder
             'user_id' => $user->id,
             'filename' => 'monolith-vs-microservices.png',
             'disk' => 'local',
-            'path' => 'media/monolith-vs-microservices-arch.png',
+            'path' => '/storage/media/monolith-vs-microservices-arch.png',
             'mime_type' => 'image/png',
             'file_size_bytes' => 482910,
             'width' => 1200,

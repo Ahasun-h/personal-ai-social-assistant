@@ -22,3 +22,9 @@ Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
 Route::get('/api/v1/ai/config', [App\Http\Controllers\Api\AiGenerationController::class, 'getConfig']);
 Route::post('/api/v1/ai/config', [App\Http\Controllers\Api\AiGenerationController::class, 'saveConfig']);
 Route::post('/api/v1/ai/test', [App\Http\Controllers\Api\AiGenerationController::class, 'testConnection']);
+
+// Web Media Endpoints for Media Studio SPA
+Route::post('/api/v1/media/upload', [App\Http\Controllers\MediaController::class, 'upload']);
+Route::post('/api/v1/media/ai/generate', [App\Http\Controllers\MediaController::class, 'generateAi']);
+Route::post('/api/v1/media/ai/video-generate', [App\Http\Controllers\MediaController::class, 'generateVideoAi']);
+Route::delete('/api/v1/media/{id}', [App\Http\Controllers\MediaController::class, 'destroy']);

@@ -32,6 +32,7 @@ interface MediaAsset {
   id: string;
   filename: string;
   path: string;
+  mime_type?: string;
   width?: number;
   height?: number;
 }
@@ -66,6 +67,25 @@ const emit = defineEmits<{
 
 // Video Element Reference
 const videoRef = ref<HTMLVideoElement | null>(null);
+
+// Asset Path & Format Resolvers
+const isVideoAsset = computed(() => {
+  if (!props.asset) return false;
+  if (props.asset.mime_type?.startsWith('video/')) return true;
+  const ext = props.asset.filename.split('.').pop()?.toLowerCase();
+  return ['mp4', 'mov', 'webm', 'mkv'].includes(ext || '');
+});
+
+const resolvedVideoPath = computed(() => {
+  const p = props.asset?.path;
+  if (!p) return '';
+  if (p.startsWith('http://') || p.startsWith('https://')) return p;
+  if (p.startsWith('/storage/')) return p;
+  if (p.startsWith('storage/')) return '/' + p;
+  if (p.startsWith('media/')) return '/storage/' + p;
+  if (p.startsWith('/')) return p;
+  return '/storage/' + p;
+});
 
 // Playback States
 const isPlaying = ref(false);
@@ -235,22 +255,67 @@ const deleteSelectedClip = () => {
 
 // Snap Current Video Frame to Media Vault
 const captureFrame = () => {
-  if (!videoRef.value) return;
-  const video = videoRef.value;
   const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth || 1280;
-  canvas.height = video.videoHeight || 720;
+  canvas.width = 1280;
+  canvas.height = 720;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
   ctx.filter = computedFilterString.value;
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-    const filename = `clipchamp_snap_${Math.floor(currentTime.value)}s_${props.asset?.filename || 'video'}.jpg`;
-    emit('save-frame', blob, filename);
-  }, 'image/jpeg', 0.95);
+  if (isVideoAsset.value && videoRef.value) {
+    const video = videoRef.value;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  } else {
+    // If working in timeline mode on a graphic asset
+    const img = document.querySelector('.clipchamp-frame-img') as HTMLImageElement;
+    if (img && img.naturalWidth) {
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  // Draw active lower-third text overlay if any
+  if (activeOverlay.value) {
+    ctx.save();
+    const ov = activeOverlay.value;
+    const boxY = canvas.height - 140;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.beginPath();
+    ctx.roundRect(40, boxY, canvas.width - 80, 100, 16);
+    ctx.fill();
+    ctx.strokeStyle = '#9EE493';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#9EE493';
+    ctx.font = 'bold 28px Inter, sans-serif';
+    ctx.fillText(ov.text, 65, boxY + 45);
+
+    if (ov.subtext) {
+      ctx.fillStyle = '#E2E8F0';
+      ctx.font = '500 18px Inter, sans-serif';
+      ctx.fillText(ov.subtext, 65, boxY + 78);
+    }
+    ctx.restore();
+  }
+
+  try {
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const rawName = props.asset?.filename ? props.asset.filename.replace(/\.[^/.]+$/, "") : 'video';
+      const filename = `clipchamp_snap_${Math.floor(currentTime.value)}s_${rawName}.jpg`;
+      emit('save-frame', blob, filename);
+    }, 'image/jpeg', 0.95);
+  } catch (e) {
+    console.warn('Clipchamp frame capture tainted, emitting frame:', e);
+  }
 };
 
 // Apply Filter Presets
@@ -371,16 +436,24 @@ const onTimelineClick = (e: MouseEvent) => {
             selectedAspect === '4:5' ? 'aspect-[4/5] h-[48vh]' : '',
           ]"
         >
-          <!-- HTML5 Video Player -->
+          <!-- HTML5 Video Player or Animated Graphic Viewport -->
           <video
+            v-if="isVideoAsset"
             ref="videoRef"
-            :src="asset?.path"
+            :src="resolvedVideoPath"
             class="w-full h-full object-contain transition"
             :style="{ filter: computedFilterString }"
             @loadedmetadata="onLoadedMetadata"
             @timeupdate="onTimeUpdate"
             @ended="isPlaying = false"
           ></video>
+          <img
+            v-else
+            :src="resolvedVideoPath"
+            :alt="asset?.filename"
+            class="clipchamp-frame-img max-w-full max-h-full object-contain transition rounded-lg"
+            :style="{ filter: computedFilterString }"
+          />
 
           <!-- Safe Margins Social Guide Overlay -->
           <div class="absolute inset-4 border border-dashed border-white/20 pointer-events-none rounded-xl"></div>
@@ -784,3 +857,4 @@ const onTimelineClick = (e: MouseEvent) => {
 
   </div>
 </template>
+

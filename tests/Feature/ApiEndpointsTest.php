@@ -200,4 +200,44 @@ class ApiEndpointsTest extends TestCase
 
         $this->assertEquals('Updated Title', $draft->fresh()->title);
     }
+
+    public function test_media_ai_generate_endpoint(): void
+    {
+        $response = $this->postJson('/api/v1/media/ai/generate', [
+            'prompt' => 'Cloud infrastructure architecture visual',
+            'aspect_ratio' => '16:9',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.alt_text', 'Cloud infrastructure architecture visual')
+            ->assertJsonPath('data.is_ai_generated', true);
+
+        $this->assertDatabaseHas('media_assets', [
+            'user_id' => $this->user->id,
+            'is_ai_generated' => true,
+        ]);
+    }
+
+    public function test_media_ai_video_generate_endpoint(): void
+    {
+        $response = $this->postJson('/api/v1/media/ai/video-generate', [
+            'mode' => 'image_to_video',
+            'prompt' => 'Parrot cinematic motion',
+            'model' => 'seedance-2.5',
+            'duration' => 10,
+            'aspect_ratio' => '16:9',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.mime_type', 'video/mp4')
+            ->assertJsonPath('data.is_ai_generated', true);
+
+        $this->assertDatabaseHas('media_assets', [
+            'user_id' => $this->user->id,
+            'mime_type' => 'video/mp4',
+            'is_ai_generated' => true,
+        ]);
+    }
 }

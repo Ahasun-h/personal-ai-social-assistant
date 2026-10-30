@@ -65,9 +65,9 @@ const aiProviders = ref<Record<string, any>>({
   gemini: {
     label: 'Google Gemini',
     badge: 'Official Google GenAI',
-    api_key: props.aiConfig?.providers?.gemini?.api_key || '',
-    model: props.aiConfig?.providers?.gemini?.model || 'gemini-1.5-pro',
-    models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'],
+    api_key: props.aiConfig?.providers?.gemini?.api_key || '""',
+    model: props.aiConfig?.providers?.gemini?.model || 'gemini-3.5-flash',
+    models: ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-pro'],
     description: 'High-speed multi-modal reasoning with expansive context windows.',
   },
   openai: {

@@ -152,14 +152,22 @@ class AiGenerationController extends Controller
 
     public function testConnection(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'provider' => 'required|string',
-            'credentials' => 'required|array',
-        ]);
+        try {
+            $validated = $request->validate([
+                'provider' => 'required|string',
+                'credentials' => 'required|array',
+            ]);
 
-        $result = TextGeneratorManager::testConnection($validated['provider'], $validated['credentials']);
+            $result = TextGeneratorManager::testConnection($validated['provider'], $validated['credentials']);
 
-        return response()->json($result);
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'latency_ms' => 0,
+            ], 200);
+        }
     }
 
     public function generateMedia(Request $request): JsonResponse

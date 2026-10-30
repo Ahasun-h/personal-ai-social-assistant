@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import {
   Sparkles,
@@ -22,6 +22,8 @@ import {
   SlidersHorizontal,
   Bot,
   Layers,
+  ShieldCheck,
+  ExternalLink,
 } from 'lucide-vue-next';
 
 interface Props {
@@ -40,6 +42,12 @@ interface Props {
     avatar_url?: string;
     is_active: boolean;
   }>;
+  categories?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    drafts_count?: number;
+  }>;
   upcomingSchedules?: Array<{
     id: string;
     scheduled_for: string;
@@ -47,6 +55,7 @@ interface Props {
     social_account?: {
       provider: string;
       name: string;
+      username: string;
     };
     draft?: {
       id: string;
@@ -66,6 +75,10 @@ interface Props {
     category?: {
       name: string;
     };
+    versions?: Array<{
+      platform: string;
+      content: string;
+    }>;
   }>;
   budget?: {
     daily_llm_cap_usd?: number;
@@ -83,6 +96,7 @@ const props = withDefaults(defineProps<Props>(), {
     total_engagements: 20675,
   }),
   accounts: () => [],
+  categories: () => [],
   upcomingSchedules: () => [],
   recentDrafts: () => [],
   budget: () => ({
@@ -92,54 +106,64 @@ const props = withDefaults(defineProps<Props>(), {
   }),
 });
 
-const spentAmount = computed(() => Number(props.budget.current_month_llm_spend_usd ?? 24.50).toFixed(2));
-const capAmount = computed(() => Number(props.budget.monthly_llm_cap_usd ?? 50.0).toFixed(2));
-const remainingAmount = computed(() => (Number(capAmount.value) - Number(spentAmount.value)).toFixed(2));
-const budgetPercentage = computed(() => {
-  const cap = props.budget.monthly_llm_cap_usd || 50;
-  const spent = props.budget.current_month_llm_spend_usd || 24.50;
-  return Math.min(100, Math.round((spent / cap) * 100));
+const page = usePage();
+const authUser = computed(() => (page.props as any).auth?.user || {
+  name: 'Alex Rivera',
+  email: 'alex@synthex.internal',
+  avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&q=80',
 });
 
-// Format time
+const userFirstName = computed(() => {
+  const full = authUser.value?.name || 'Alex';
+  return full.split(' ')[0];
+});
+
+const spentAmount = computed(() => Number(props.budget.current_month_llm_spend_usd ?? 24.50).toFixed(2));
+const capAmount = computed(() => Number(props.budget.monthly_llm_cap_usd ?? 50.0).toFixed(2));
+const remainingAmount = computed(() => Math.max(0, Number(capAmount.value) - Number(spentAmount.value)).toFixed(2));
+
+// Format schedule times
 const formatScheduleTime = (isoString?: string) => {
-  if (!isoString) return 'Pending';
+  if (!isoString) return 'Pending Slot';
   try {
     const d = new Date(isoString);
     const now = new Date();
     const isToday = d.toDateString() === now.toDateString();
     const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (isToday) return `Today ${timeStr}`;
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ` ${timeStr}`;
+    if (isToday) return `Today at ${timeStr}`;
+    const tomorrow = new Date();
+    tomorrow.setDate(now.getDate() + 1);
+    if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow at ${timeStr}`;
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ` at ${timeStr}`;
   } catch {
     return isoString;
   }
 };
 
-// Activity Feed items with status matching Image 1
-const dispatchFeed = computed(() => {
+// Real dispatches mapped to project domain
+const upcomingDispatches = computed(() => {
   if (props.upcomingSchedules && props.upcomingSchedules.length > 0) {
     return props.upcomingSchedules.map((s, idx) => ({
       id: s.id,
       title: s.draft?.title || 'Autonomous Multi-Agent SDLC in 2026',
       platform: s.social_account?.provider || (idx % 2 === 0 ? 'linkedin' : 'x_twitter'),
+      accountHandle: s.social_account?.username || (s.social_account?.provider === 'linkedin' ? 'alexrivera-pe' : 'alexrivera_tech'),
       time: formatScheduleTime(s.scheduled_for),
-      status: s.status === 'published' ? 'Done' : (idx === 0 ? 'Waiting' : 'Done'),
+      status: s.status === 'published' ? 'Published' : (idx === 0 ? 'In Review' : 'Queued'),
       statusType: s.status === 'published' ? 'done' : (idx === 0 ? 'waiting' : 'done'),
-      metric: s.status === 'published' ? '$2.540.00' : '$2.540.00',
     }));
   }
 
   return [
-    { id: '1', title: 'Autonomous Multi-Agent SDLC in 2026', platform: 'linkedin', time: 'Today 16:30', status: 'Waiting', statusType: 'waiting', metric: '$2.540.00' },
-    { id: '2', title: 'Speculative Decoding: Zero-Loss LLM Accelerator', platform: 'x_twitter', time: 'Tomorrow 09:00', status: 'Done', statusType: 'done', metric: '$2.540.00' },
-    { id: '3', title: 'Lessons from 10 Billion Redis Commands', platform: 'linkedin', time: 'Nov 02 14:00', status: 'Done', statusType: 'done', metric: '$2.540.00' },
-    { id: '4', title: 'Why SQLite + Litestream Replaces Postgres', platform: 'x_twitter', time: 'Yesterday', status: 'Done', statusType: 'done', metric: '$2.540.00' },
-    { id: '5', title: 'Production Multi-Tenant RLS on Supabase', platform: 'linkedin', time: 'Oct 28', status: 'Failed', statusType: 'failed', metric: '$2.540.00' },
+    { id: '1', title: 'Autonomous Multi-Agent SDLC in 2026', platform: 'linkedin', accountHandle: 'alexrivera-pe', time: 'Today at 16:30', status: 'In Review', statusType: 'waiting' },
+    { id: '2', title: 'Speculative Decoding: Zero-Loss LLM Accelerator', platform: 'x_twitter', accountHandle: 'alexrivera_tech', time: 'Tomorrow at 09:00', status: 'Queued', statusType: 'done' },
+    { id: '3', title: 'Lessons from 10 Billion Redis Commands Under Load', platform: 'linkedin', accountHandle: 'alexrivera-pe', time: 'Nov 02 at 14:00', status: 'Queued', statusType: 'done' },
+    { id: '4', title: 'Why SQLite + Litestream Replaces Postgres in SaaS', platform: 'x_twitter', accountHandle: 'alexrivera_tech', time: 'Nov 04 at 11:15', status: 'Queued', statusType: 'done' },
+    { id: '5', title: 'Production Multi-Tenant RLS on Supabase', platform: 'linkedin', accountHandle: 'alexrivera-pe', time: 'Oct 28 (Delivered)', status: 'Published', statusType: 'done' },
   ];
 });
 
-// Dot matrix data for 46.5 hours/reach card
+// Dot matrix data for engagement density across daytime hours (08:00 to 18:00)
 const dotMatrix = [
   [false, false, false, false, false, false, true, true, false, false],
   [false, false, true, true, false, true, true, true, false, false],
@@ -150,54 +174,62 @@ const dotMatrix = [
 
 <template>
   <AppLayout title="Executive Command Center">
-    <Head title="AI Executive Command Center" />
+    <Head title="AI Social Media Command Center" />
 
     <div class="space-y-6">
 
-      <!-- Breadcrumbs & Greeting Action Bar (Matching Image 1) -->
+      <!-- Breadcrumbs & Greeting Action Bar (Matching Image 1 & 2) -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div class="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <span>Portal</span>
+            <span>Workspace</span>
             <ChevronRight class="w-3 h-3 text-slate-400" />
-            <span class="text-slate-600 font-semibold">Dashboard</span>
+            <span class="text-slate-600 font-semibold">AI Social Command Center</span>
           </div>
           <h1 class="text-2xl sm:text-3xl font-display font-bold text-slate-900 tracking-tight mt-1">
-            Good morning Alex
+            Good morning, {{ userFirstName }}
           </h1>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Cross-platform audience telemetry, AI curation pipeline, and automated dispatch queue.
+          </p>
         </div>
 
-        <!-- Header Actions: Add widget, Date Range, Add report (Matching Image 1) -->
+        <!-- Header Actions: Add widget, Date Range, Schedule Post (Matching Image 1) -->
         <div class="flex items-center gap-2.5 flex-wrap">
-          <button class="bg-white hover:bg-slate-50 border border-slate-200/80 px-4 py-2 rounded-full text-xs font-medium text-slate-700 shadow-sm flex items-center gap-1.5 transition">
+          <Link
+            href="/inbox"
+            class="bg-white hover:bg-slate-50 border border-slate-200/80 px-4 py-2 rounded-full text-xs font-medium text-slate-700 shadow-sm flex items-center gap-1.5 transition"
+          >
             <Plus class="w-3.5 h-3.5 text-slate-500" />
-            <span>Add widget</span>
-          </button>
+            <span>New AI Draft</span>
+          </Link>
 
           <div class="bg-white border border-slate-200/80 px-4 py-2 rounded-full text-xs font-medium text-slate-700 shadow-sm flex items-center gap-2">
             <CalendarIcon class="w-3.5 h-3.5 text-slate-400" />
-            <span>24 - 30 October</span>
+            <span>24 - 30 October 2026</span>
           </div>
 
           <Link
-            href="/inbox"
-            class="bg-[#9EE493] hover:bg-[#8fe084] text-slate-900 px-5 py-2 rounded-full text-xs font-semibold shadow-sm flex items-center gap-2 transition"
+            href="/calendar"
+            class="bg-[#9EE493] hover:bg-[#8ee082] text-slate-900 px-5 py-2 rounded-full text-xs font-semibold shadow-sm flex items-center gap-2 transition"
           >
-            <Sparkles class="w-3.5 h-3.5 text-slate-900" />
-            <span>Add report</span>
+            <CalendarIcon class="w-3.5 h-3.5 text-slate-900" />
+            <span>Schedule Dispatch</span>
           </Link>
         </div>
       </div>
 
-      <!-- Top KPI Bar (Image 2 mathematical relationship cards style) -->
+      <!-- Top KPI Bar (Image 2 style: 4 clear metrics with sparkline bars) -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- 1: Automations Running -->
+        <!-- 1: Published Dispatches -->
         <div class="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] space-y-2 relative overflow-hidden group">
           <div class="flex items-center justify-between">
-            <span class="text-2xl sm:text-3xl font-display font-bold text-slate-900">48</span>
+            <span class="text-2xl sm:text-3xl font-display font-bold text-slate-900">
+              {{ stats.published_count || 48 }}
+            </span>
             <div class="w-2.5 h-2.5 rounded-full bg-[#10B981] ring-4 ring-emerald-50"></div>
           </div>
-          <p class="text-xs text-slate-400 font-medium">Automations Running</p>
+          <p class="text-xs text-slate-500 font-medium">Published Dispatches</p>
           <!-- Mini sparkline bars -->
           <div class="flex items-end gap-1 h-6 pt-1">
             <div class="flex-1 bg-slate-200 rounded-sm h-2"></div>
@@ -214,10 +246,12 @@ const dotMatrix = [
         <!-- 2: Connected Channels -->
         <div class="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] space-y-2 relative overflow-hidden group">
           <div class="flex items-center justify-between">
-            <span class="text-2xl sm:text-3xl font-display font-bold text-slate-900">08</span>
-            <span class="text-xs text-slate-400 font-mono">x</span>
+            <span class="text-2xl sm:text-3xl font-display font-bold text-slate-900">
+              {{ accounts.length ? (accounts.length < 10 ? '0' + accounts.length : accounts.length) : '02' }}
+            </span>
+            <span class="text-xs text-slate-400 font-mono">LI & 𝕏</span>
           </div>
-          <p class="text-xs text-slate-400 font-medium">Apps Connected</p>
+          <p class="text-xs text-slate-500 font-medium">Active Channels Connected</p>
           <!-- Mini sparkline bars -->
           <div class="flex items-end gap-1 h-6 pt-1">
             <div class="flex-1 bg-slate-200 rounded-sm h-3"></div>
@@ -231,13 +265,15 @@ const dotMatrix = [
           </div>
         </div>
 
-        <!-- 3: Active Servers / Drivers -->
+        <!-- 3: 30-Day Impressions -->
         <div class="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] space-y-2 relative overflow-hidden group">
           <div class="flex items-center justify-between">
-            <span class="text-2xl sm:text-3xl font-display font-bold text-slate-900">02</span>
-            <span class="text-xs text-slate-400 font-mono">=</span>
+            <span class="text-2xl sm:text-3xl font-display font-bold text-slate-900">
+              {{ Number(stats.total_impressions || 428950).toLocaleString() }}
+            </span>
+            <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-mono">+18.4%</span>
           </div>
-          <p class="text-xs text-slate-400 font-medium">Active Channels (LI & X)</p>
+          <p class="text-xs text-slate-500 font-medium">30-Day Audience Reach</p>
           <!-- Mini sparkline bars -->
           <div class="flex items-end gap-1 h-6 pt-1">
             <div class="flex-1 bg-slate-200 rounded-sm h-4"></div>
@@ -251,15 +287,15 @@ const dotMatrix = [
           </div>
         </div>
 
-        <!-- 4: Success Rate -->
+        <!-- 4: Schedule Reliability -->
         <div class="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] space-y-2 relative overflow-hidden group">
           <div class="flex items-center justify-between">
-            <span class="text-2xl sm:text-3xl font-display font-bold text-slate-900">98%</span>
+            <span class="text-2xl sm:text-3xl font-display font-bold text-slate-900">98.2%</span>
             <div class="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center">
               <Check class="w-3 h-3 text-[#9EE493]" />
             </div>
           </div>
-          <p class="text-xs text-slate-400 font-medium">Success Rate</p>
+          <p class="text-xs text-slate-500 font-medium">Dispatch Reliability Rate</p>
           <!-- Mini sparkline bars -->
           <div class="flex items-end gap-1 h-6 pt-1">
             <div class="flex-1 bg-[#9EE493] rounded-sm h-5"></div>
@@ -277,63 +313,67 @@ const dotMatrix = [
       <!-- Main Layout: 3-Column Architecture matching Image 1 -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        <!-- LEFT COLUMN: Profile Card & Wave Chart (3 Cols on desktop) -->
+        <!-- LEFT COLUMN: Profile Card & Weekly Reach Wave Chart (3 Cols on desktop) -->
         <div class="lg:col-span-3 space-y-5">
-          <!-- Profile Portrait Card (Matching Image 1 Left Card) -->
+          <!-- Profile Card: Aligned with Personal AI Social Assistant User -->
           <div class="bg-white rounded-3xl p-3 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-3">
             <div class="relative rounded-2xl overflow-hidden aspect-[4/4.5] bg-gradient-to-b from-[#C4E0E5] to-[#4CA1AF] flex items-end">
               <!-- Portrait Image -->
               <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&q=80"
-                alt="Profile"
+                :src="authUser.avatar_url"
+                :alt="authUser.name"
                 class="w-full h-full object-cover object-top mix-blend-multiply opacity-90"
               />
 
-              <!-- Pill badge on top right: 4+ years experience / AI Copilot -->
+              <!-- Pill badge on top left: AI Co-Pilot Active -->
               <div class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                <span>4+ years experience</span>
+                <span>AI Co-Pilot 2.0 Active</span>
                 <span class="text-[#9EE493]">✦</span>
               </div>
 
-              <!-- Frosted Glass Bar on Bottom (Matching Image 1) -->
-              <div class="absolute bottom-3 inset-x-3 bg-white/70 backdrop-blur-md rounded-2xl p-3 border border-white/60 shadow-sm flex items-center justify-between">
-                <div>
-                  <h3 class="font-display font-bold text-xs text-slate-900 leading-tight">Chris Jonathan</h3>
-                  <p class="text-[10px] text-slate-500 font-medium">General manager</p>
+              <!-- Frosted Glass Bar on Bottom: Dynamic User Profile -->
+              <div class="absolute bottom-3 inset-x-3 bg-white/75 backdrop-blur-md rounded-2xl p-3 border border-white/60 shadow-sm flex items-center justify-between">
+                <div class="min-w-0">
+                  <h3 class="font-display font-bold text-xs text-slate-900 leading-tight truncate">
+                    {{ authUser.name }}
+                  </h3>
+                  <p class="text-[10px] text-slate-500 font-medium truncate">
+                    AI Systems & Brand Architect
+                  </p>
                 </div>
                 <!-- Quick Contact / Social Platform Action Icons -->
-                <div class="flex items-center gap-1.5">
-                  <a href="/settings" class="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center hover:scale-105 transition shadow-sm" title="Connected Socials">
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <Link href="/settings" class="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center hover:scale-105 transition shadow-sm" title="Manage Accounts">
                     <Share2 class="w-3.5 h-3.5 text-[#9EE493]" />
-                  </a>
-                  <a href="/inbox" class="w-7 h-7 rounded-full bg-white text-slate-900 flex items-center justify-center hover:scale-105 transition shadow-sm border border-slate-200" title="Review Inbox">
+                  </Link>
+                  <Link href="/inbox" class="w-7 h-7 rounded-full bg-white text-slate-900 flex items-center justify-center hover:scale-105 transition shadow-sm border border-slate-200" title="Review Inbox">
                     <Inbox class="w-3.5 h-3.5 text-slate-700" />
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Average work time / Reach Curve Card (Matching Image 1) -->
+          <!-- Weekly Audience Reach Curve Card (Aligned with Social Impressions) -->
           <div class="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
             <div>
-              <p class="text-xs text-slate-400 font-medium">Average work time</p>
+              <p class="text-xs text-slate-400 font-medium">Weekly Audience Reach</p>
               <div class="flex items-baseline gap-2 mt-0.5">
-                <span class="text-2xl font-display font-bold text-slate-900">46 hours</span>
+                <span class="text-2xl font-display font-bold text-slate-900">46.5K reach</span>
                 <span class="text-[11px] font-semibold text-[#10B981] bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                  <span>+0.5%</span>
+                  <span>+14.8%</span>
                   <ArrowUpRight class="w-3 h-3 text-[#10B981]" />
                 </span>
               </div>
             </div>
 
-            <!-- Wave Line Chart with Highlight Data Point Tooltip (Matching Image 1) -->
+            <!-- Wave Line Chart with Highlight Peak Data Point (Matching Image 1) -->
             <div class="relative h-28 w-full pt-4">
               <!-- Y-Axis guidelines -->
               <div class="absolute inset-0 flex flex-col justify-between text-[10px] text-slate-300 font-mono pointer-events-none">
-                <div class="border-b border-dashed border-slate-100 pb-0.5">10 H</div>
-                <div class="border-b border-dashed border-slate-100 pb-0.5">8 H</div>
-                <div class="border-b border-dashed border-slate-100 pb-0.5">4 H</div>
+                <div class="border-b border-dashed border-slate-100 pb-0.5">15 K</div>
+                <div class="border-b border-dashed border-slate-100 pb-0.5">8 K</div>
+                <div class="border-b border-dashed border-slate-100 pb-0.5">2 K</div>
               </div>
 
               <!-- SVG Smooth Wave -->
@@ -349,24 +389,24 @@ const dotMatrix = [
                 <circle cx="100" cy="50" r="5" fill="#FFFFFF" stroke="#0F172A" stroke-width="3" />
               </svg>
 
-              <!-- Floating Tooltip Pill: 8 Hours -->
-              <div class="absolute top-14 left-[36%] -translate-x-1/2 bg-slate-900 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-md">
-                8 Hours
+              <!-- Floating Tooltip Pill: 8.4K Peak -->
+              <div class="absolute top-14 left-[36%] -translate-x-1/2 bg-slate-900 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-md whitespace-nowrap">
+                8.4K Peak (Thu 09:15)
               </div>
             </div>
 
             <p class="text-[10px] text-slate-400 flex items-center gap-1.5 pt-2 border-t border-slate-100">
               <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-              <span>Total work hours include extra hours</span>
+              <span>Combined organic reach across LinkedIn & X</span>
             </p>
           </div>
         </div>
 
         <!-- CENTER COLUMN: Analytics & Pipeline Grid (6 Cols on desktop) -->
         <div class="lg:col-span-6 space-y-5">
-          <!-- Top Row: 46,5 Dot Matrix Card + 80% Onsite/Remote Dark Teal Card -->
+          <!-- Top Row: Dot Matrix Card + Platform Distribution Dark Teal Card -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <!-- 46,5 Dot Matrix Card (Matching Image 1) -->
+            <!-- Dot Matrix Card: Engagement Density across Daytime Slots -->
             <div class="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
               <div class="flex items-center justify-between">
                 <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
@@ -380,7 +420,7 @@ const dotMatrix = [
                 </div>
               </div>
 
-              <p class="text-xs text-slate-400 font-medium">avg hours / weeks</p>
+              <p class="text-xs text-slate-500 font-medium">avg reach / post</p>
 
               <!-- Dot Matrix Grid Chart (Matching Image 1) -->
               <div class="space-y-1.5 pt-1">
@@ -397,26 +437,26 @@ const dotMatrix = [
               </div>
 
               <div class="flex items-center justify-between text-[10px] text-slate-400 font-medium pt-1">
-                <span>2 Hours</span>
+                <span>08:00 AM</span>
                 <div class="flex items-center gap-1">
                   <div class="w-2 h-2 rounded-full bg-slate-200"></div>
                   <div class="w-2 h-2 rounded-full bg-slate-400"></div>
                   <div class="w-2 h-2 rounded-full bg-[#1E3A40]"></div>
                 </div>
-                <span>10 Hours</span>
+                <span>18:00 PM (Peak)</span>
               </div>
             </div>
 
-            <!-- Dark Teal Contrast Card: 80% Onsite / 20% Remote (Matching Image 1) -->
+            <!-- Dark Teal Contrast Card: 80% LinkedIn Reach / 20% X Reach -->
             <div class="bg-[#162E35] rounded-3xl p-5 text-white shadow-contrast flex flex-col justify-between space-y-4">
-              <!-- Item 1: Onsite / LinkedIn -->
+              <!-- Platform 1: LinkedIn -->
               <div class="flex items-center justify-between border-b border-white/10 pb-3">
                 <div>
                   <div class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white mb-1">
                     <Share2 class="w-3.5 h-3.5 text-[#9EE493]" />
                   </div>
                   <div class="text-3xl font-display font-bold text-white">80%</div>
-                  <p class="text-[11px] text-white/60 font-medium">LinkedIn reach</p>
+                  <p class="text-[11px] text-white/70 font-medium">LinkedIn reach</p>
                 </div>
                 <div class="text-[10px] font-semibold bg-white/10 text-[#9EE493] px-2.5 py-1 rounded-full flex items-center gap-1">
                   <span>+2.6%</span>
@@ -424,14 +464,14 @@ const dotMatrix = [
                 </div>
               </div>
 
-              <!-- Item 2: Remote / X (Twitter) -->
+              <!-- Platform 2: X (Twitter) -->
               <div class="flex items-center justify-between pt-1">
                 <div>
                   <div class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white mb-1">
                     <TrendingUp class="w-3.5 h-3.5 text-sky-300" />
                   </div>
                   <div class="text-3xl font-display font-bold text-white">20%</div>
-                  <p class="text-[11px] text-white/60 font-medium">X (Twitter) reach</p>
+                  <p class="text-[11px] text-white/70 font-medium">X (Twitter) reach</p>
                 </div>
                 <div class="text-[10px] font-semibold bg-white/10 text-emerald-400 px-2.5 py-1 rounded-full flex items-center gap-1">
                   <span>+2.6%</span>
@@ -441,13 +481,13 @@ const dotMatrix = [
             </div>
           </div>
 
-          <!-- Bottom Row: Donut Chart Card + Talent/Draft Pipeline Card -->
+          <!-- Bottom Row: Half-Donut Content Distribution + AI Generation Pipeline -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <!-- Total employee / Track your team Half-Donut Card (Matching Image 1) -->
+            <!-- Content Distribution Half-Donut Card (Aligned with Social Posts) -->
             <div class="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-xs text-slate-400 font-medium">Total dispatches</p>
+                  <p class="text-xs text-slate-400 font-medium">Content distribution</p>
                   <h4 class="font-display font-bold text-sm text-slate-900">Track your reach</h4>
                 </div>
                 <Link href="/analytics" class="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-900 transition">
@@ -458,7 +498,7 @@ const dotMatrix = [
               <!-- Half Donut Gauge SVG (Matching Image 1) -->
               <div class="relative flex flex-col items-center justify-center py-2">
                 <svg class="w-44 h-24 overflow-visible" viewBox="0 0 100 55">
-                  <!-- Arc Segment 1: Mint (48 items) -->
+                  <!-- Arc Segment 1: Mint (48 AI architecture posts) -->
                   <path
                     d="M 10 50 A 40 40 0 0 1 50 10"
                     fill="none"
@@ -466,7 +506,7 @@ const dotMatrix = [
                     stroke-width="14"
                     stroke-linecap="round"
                   />
-                  <!-- Arc Segment 2: Slate-800 (27 items) -->
+                  <!-- Arc Segment 2: Slate-800 (27 deep dives) -->
                   <path
                     d="M 52 10 A 40 40 0 0 1 90 50"
                     fill="none"
@@ -482,12 +522,12 @@ const dotMatrix = [
                 </div>
               </div>
 
-              <!-- Legends -->
+              <!-- Content Category Legends -->
               <div class="space-y-2 text-xs pt-1">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-[#86EFAC]"></span>
-                    <span class="text-slate-600 font-medium">AI Generated</span>
+                    <span class="text-slate-600 font-medium">AI & LLM Systems</span>
                   </div>
                   <span class="font-semibold text-slate-900">48 posts</span>
                 </div>
@@ -495,7 +535,7 @@ const dotMatrix = [
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-[#1E3A40]"></span>
-                    <span class="text-slate-600 font-medium">Deep Dives</span>
+                    <span class="text-slate-600 font-medium">Distributed Cloud</span>
                   </div>
                   <span class="font-semibold text-slate-900">27 posts</span>
                 </div>
@@ -503,40 +543,46 @@ const dotMatrix = [
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
-                    <span class="text-slate-600 font-medium">Evergreen</span>
+                    <span class="text-slate-600 font-medium">Evergreen Insights</span>
                   </div>
                   <span class="font-semibold text-slate-900">18 posts</span>
                 </div>
               </div>
             </div>
 
-            <!-- Talent recruitment / AI Draft Pipeline Card (Matching Image 1) -->
+            <!-- AI Content Pipeline Card (Aligned with Draft Curation) -->
             <div class="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-xs text-slate-400 font-medium">AI Generation queue</p>
-                  <h4 class="font-display font-bold text-sm text-slate-900">Auto-Draft pipeline</h4>
+                  <p class="text-xs text-slate-400 font-medium">AI Content Pipeline</p>
+                  <h4 class="font-display font-bold text-sm text-slate-900">Auto-Draft Queue</h4>
                 </div>
                 <Link href="/inbox" class="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-900 transition">
                   <ChevronRight class="w-4 h-4" />
                 </Link>
               </div>
 
-              <!-- 2 Draft Avatars & Join Call Button (Matching Image 1) -->
+              <!-- 2 Draft Previews & Review Draft Action (Matching Image 1) -->
               <div class="grid grid-cols-3 gap-2">
-                <div class="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
+                <div class="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative group">
                   <img
-                    src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80"
-                    alt="Draft"
+                    src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&q=80"
+                    alt="AI Draft 1"
                     class="w-full h-full object-cover"
                   />
+                  <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                    <span class="text-[9px] text-white font-mono">LI</span>
+                  </div>
                 </div>
-                <div class="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
+                <div class="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative group">
                   <img
-                    src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&q=80"
-                    alt="Draft"
+                    src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=200&q=80"
+                    alt="AI Draft 2"
                     class="w-full h-full object-cover"
                   />
+                  <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                    <span class="text-[9px] text-white font-mono">𝕏</span>
+                  </div>
                 </div>
                 <Link
                   href="/inbox"
@@ -548,8 +594,8 @@ const dotMatrix = [
               </div>
 
               <div class="flex items-center justify-between text-xs text-slate-500 font-medium pt-1">
-                <span>120 Generated</span>
-                <span>80 Approved</span>
+                <span>12 Generated</span>
+                <span>8 Approved</span>
               </div>
 
               <!-- Vertical Green Match Bars (Matching Image 1) -->
@@ -560,30 +606,30 @@ const dotMatrix = [
               <div class="flex items-center gap-3 text-[10px] text-slate-400 font-medium">
                 <div class="flex items-center gap-1">
                   <span class="w-2 h-2 rounded-full bg-[#86EFAC]"></span>
-                  <span>Approved</span>
+                  <span>Approved ({{ stats.scheduled_count || 4 }})</span>
                 </div>
                 <div class="flex items-center gap-1">
                   <span class="w-2 h-2 rounded-full bg-slate-200"></span>
-                  <span>In Review</span>
+                  <span>In Review ({{ stats.inbox_count || 3 }})</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- RIGHT COLUMN: Salaries & Incentive / Queue Dispatches (3 Cols on desktop) -->
+        <!-- RIGHT COLUMN: Scheduled Dispatches & Budget Telemetry (3 Cols on desktop) -->
         <div class="lg:col-span-3 space-y-5">
-          <!-- Upcoming Dispatches List (Matching Image 1 Right Column) -->
+          <!-- Upcoming Dispatches List (Replacing Payout Salaries with Real Project Dispatches) -->
           <div class="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
             <div>
-              <p class="text-xs text-slate-400 font-medium">Payout monthly</p>
-              <h3 class="font-display font-bold text-base text-slate-900">Salaries and insentive</h3>
+              <p class="text-xs text-slate-400 font-medium">Scheduled Queue</p>
+              <h3 class="font-display font-bold text-base text-slate-900">Upcoming Dispatches</h3>
             </div>
 
-            <!-- List of items with avatar, metric, time, and soft status pill (Matching Image 1) -->
+            <!-- List of items with platform icon, handle, title, time, and soft status pill -->
             <div class="space-y-3.5">
               <div
-                v-for="item in dispatchFeed"
+                v-for="item in upcomingDispatches"
                 :key="item.id"
                 class="flex items-center justify-between gap-3 text-xs"
               >
@@ -599,7 +645,7 @@ const dotMatrix = [
                   </div>
                   <div class="min-w-0">
                     <p class="font-semibold text-slate-900 truncate leading-tight">{{ item.title }}</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">{{ item.time }}</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5 truncate">{{ item.time }}</p>
                   </div>
                 </div>
 
@@ -633,18 +679,18 @@ const dotMatrix = [
             </div>
           </div>
 
-          <!-- Dark Teal Summary Card (Matching Bottom Right Card in Image 1) -->
+          <!-- Dark Teal Summary Card: Monthly AI & API Budget Telemetry -->
           <div class="bg-[#162E35] rounded-3xl p-5 text-white shadow-contrast space-y-4">
-            <!-- Top Green Pill: Basic Salary / Monthly Budget -->
+            <!-- Top Green Pill: Monthly Budget Meter -->
             <div class="bg-[#9EE493] rounded-2xl p-3 text-slate-900 flex items-center justify-between">
-              <span class="text-xs font-semibold">Monthly Budget</span>
+              <span class="text-xs font-semibold">Monthly AI & API Budget</span>
               <span class="font-mono font-bold text-sm">${{ spentAmount }}</span>
             </div>
 
-            <!-- Sub Pill Badges: Perform / Gift -->
+            <!-- Sub Pill Badges: Gemini LLM & Social APIs -->
             <div class="grid grid-cols-2 gap-2">
               <div class="bg-white/10 rounded-xl p-2.5 text-center">
-                <span class="text-[10px] text-white/70 block">Gemini LLM</span>
+                <span class="text-[10px] text-white/70 block">Gemini 1.5 Pro</span>
                 <span class="font-mono font-semibold text-xs text-white mt-0.5 block">$14.50</span>
               </div>
               <div class="bg-white/10 rounded-xl p-2.5 text-center">
@@ -653,19 +699,19 @@ const dotMatrix = [
               </div>
             </div>
 
-            <!-- Payment 100% / Take Home Pay -->
+            <!-- Health Status / Available Cap -->
             <div class="flex items-baseline justify-between pt-2 border-t border-white/10">
               <div>
-                <p class="text-[10px] text-white/60">Health status</p>
+                <p class="text-[10px] text-white/60">Guardrails Status</p>
                 <span class="text-sm font-semibold text-[#9EE493]">100% Active</span>
               </div>
               <div class="text-right">
-                <p class="text-[10px] text-white/60">Available cap</p>
+                <p class="text-[10px] text-white/60">Available Cap</p>
                 <span class="text-lg font-display font-bold text-white">${{ remainingAmount }}</span>
               </div>
             </div>
 
-            <!-- Bottom Action Icons with Badge Count -->
+            <!-- Bottom Action Button: Review Next Draft -->
             <div class="flex items-center justify-between pt-1">
               <Link
                 href="/inbox"
@@ -673,8 +719,8 @@ const dotMatrix = [
               >
                 <Inbox class="w-4 h-4 text-slate-900" />
                 <span>Review Next Draft</span>
-                <span class="w-5 h-5 rounded-full bg-[#9EE493] text-slate-900 text-[10px] font-mono flex items-center justify-center">
-                  {{ stats.inbox_count }}
+                <span class="w-5 h-5 rounded-full bg-[#9EE493] text-slate-900 text-[10px] font-mono flex items-center justify-center font-bold">
+                  {{ stats.inbox_count || 3 }}
                 </span>
               </Link>
             </div>

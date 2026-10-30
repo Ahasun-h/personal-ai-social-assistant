@@ -34,7 +34,7 @@ const strokeDashoffset = computed(() => {
           cx="16"
           cy="16"
           :r="radius"
-          class="text-gray-800"
+          class="text-slate-200"
           stroke="currentColor"
           stroke-width="2.5"
           fill="none"

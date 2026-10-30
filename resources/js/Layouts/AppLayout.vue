@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
   Inbox,
   Calendar,
   Flame,
-  Image,
+  Image as ImageIcon,
   BarChart3,
   Settings,
   Bell,
   Sparkles,
+  Search,
   Zap,
-  LayoutDashboard,
+  CheckCircle2,
+  SlidersHorizontal,
 } from 'lucide-vue-next';
-import TokenCountdownBadge from '@/Components/TokenCountdownBadge.vue';
 
 interface Props {
   title?: string;
@@ -39,184 +40,150 @@ const capUsd = computed(() => {
 });
 
 const activePath = computed(() => page.url);
+
+const navItems = computed(() => [
+  { name: 'Dashboard', href: '/dashboard', active: activePath.value === '/' || activePath.value.startsWith('/dashboard') },
+  { name: 'Review Inbox', href: '/inbox', active: activePath.value.startsWith('/inbox'), count: inboxCount.value },
+  { name: 'Calendar', href: '/calendar', active: activePath.value.startsWith('/calendar') },
+  { name: 'Trend Intel', href: '/trends', active: activePath.value.startsWith('/trends') },
+  { name: 'Media Studio', href: '/media', active: activePath.value.startsWith('/media') },
+  { name: 'Analytics', href: '/analytics', active: activePath.value.startsWith('/analytics') },
+  { name: 'Settings Vault', href: '/settings', active: activePath.value.startsWith('/settings') },
+]);
+
+const searchQuery = ref('');
 </script>
 
 <template>
-  <div class="min-h-screen bg-canvas text-gray-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-    <!-- Top Bar -->
-    <header class="h-14 border-b border-white/10 bg-surface-elevated/80 backdrop-blur-md sticky top-0 z-50 flex items-center justify-between px-6">
-      <Link href="/dashboard" class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <Sparkles class="w-4 h-4 text-white" />
-        </div>
-        <span class="font-bold text-sm tracking-wide bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
-          Personal AI Social Assistant
-        </span>
-      </Link>
+  <div class="min-h-screen bg-[#F4F6F8] text-slate-800 flex flex-col font-sans selection:bg-[#9EE493] selection:text-slate-900">
+    <!-- Top Navigation Bar (Inspired by Lordbank & Botrix Header) -->
+    <header class="sticky top-0 z-50 bg-[#F4F6F8]/90 backdrop-blur-md pt-3 pb-2 px-6">
+      <div class="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
+        
+        <!-- Left: Brand Clover Logo Pill -->
+        <Link href="/dashboard" class="flex items-center gap-2.5 shrink-0 group">
+          <div class="w-10 h-10 rounded-2xl bg-[#9EE493] flex items-center justify-center shadow-sm shadow-[#9EE493]/30 transition group-hover:scale-105">
+            <!-- 4-leaf clover / spark brand icon matching reference image 1 -->
+            <div class="grid grid-cols-2 gap-0.5 p-1">
+              <div class="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
+            </div>
+          </div>
+          <div class="hidden sm:block">
+            <span class="font-display font-bold text-base tracking-tight text-slate-900 block leading-tight">
+              Synthex
+            </span>
+            <span class="text-[10px] text-slate-400 font-medium block -mt-0.5 tracking-wider uppercase">
+              AI Command
+            </span>
+          </div>
+        </Link>
 
-      <!-- Right Nav Status & Badges -->
-      <div class="flex items-center gap-4">
-        <!-- Connected accounts pills -->
-        <div class="hidden md:flex items-center gap-2">
-          <div
-            v-for="acc in accounts"
-            :key="acc.id"
-            class="flex items-center gap-1.5 text-xs text-gray-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/5"
+        <!-- Center: Floating Pill Navigation (Matching Image 1 & 2) -->
+        <nav class="hidden md:flex items-center gap-1 bg-white/80 p-1.5 rounded-full border border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.03)] backdrop-blur-sm">
+          <Link
+            v-for="item in navItems"
+            :key="item.name"
+            :href="item.href"
+            :class="[
+              'px-4 py-2 rounded-full text-xs font-medium transition-all duration-150 flex items-center gap-2 whitespace-nowrap',
+              item.active
+                ? 'bg-[#9EE493] text-slate-900 font-semibold shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+            ]"
           >
+            <span>{{ item.name }}</span>
             <span
-              :class="[
-                'w-2 h-2 rounded-full',
-                acc.provider === 'linkedin' ? 'bg-blue-500' : 'bg-slate-300'
-              ]"
-            ></span>
-            <span class="font-medium text-gray-300">{{ acc.provider === 'linkedin' ? 'LinkedIn' : 'X (Twitter)' }}</span>
-            <TokenCountdownBadge
-              v-if="acc.days_remaining !== null"
-              :days-remaining="acc.days_remaining"
-              :platform="acc.provider"
+              v-if="item.count && item.count > 0"
+              class="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-900 text-white font-mono"
+            >
+              {{ item.count }}
+            </span>
+          </Link>
+        </nav>
+
+        <!-- Right: Utility Controls (Search, Budget, Notification, Profile) -->
+        <div class="flex items-center gap-3 shrink-0">
+          <!-- Search Pill (Matching Image 1) -->
+          <div class="hidden lg:flex items-center gap-2 bg-white px-3.5 py-2 rounded-full border border-slate-200/80 shadow-sm text-xs text-slate-400 focus-within:border-slate-400 focus-within:text-slate-600 transition">
+            <Search class="w-3.5 h-3.5 text-slate-400" />
+            <input
+              type="text"
+              v-model="searchQuery"
+              placeholder="Search posts, trends..."
+              class="bg-transparent border-none p-0 text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-32 focus:w-44 transition-all"
             />
-            <span v-else class="text-emerald-400 font-mono text-[11px]">Active</span>
           </div>
 
+          <!-- Connected Accounts Pills (LinkedIn & X) -->
+          <div class="hidden xl:flex items-center gap-1.5">
+            <div
+              v-for="acc in accounts"
+              :key="acc.id"
+              class="flex items-center gap-1.5 text-[11px] font-medium bg-white px-2.5 py-1.5 rounded-full border border-slate-200/80 shadow-sm text-slate-600"
+            >
+              <span
+                :class="[
+                  'w-2 h-2 rounded-full',
+                  acc.provider === 'linkedin' ? 'bg-[#0A66C2]' : 'bg-slate-900'
+                ]"
+              ></span>
+              <span>{{ acc.provider === 'linkedin' ? 'LinkedIn' : 'X (Twitter)' }}</span>
+            </div>
+          </div>
+
+          <!-- Budget Pill -->
           <Link
-            v-if="accounts.length === 0"
             href="/settings"
-            class="text-xs text-indigo-400 hover:text-indigo-300 font-mono bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20"
+            class="hidden sm:flex items-center gap-1.5 bg-white border border-slate-200/80 px-3 py-1.5 rounded-full text-xs font-mono text-slate-700 shadow-sm hover:border-slate-300 transition"
+            title="Monthly AI & API Budget"
           >
-            + Connect Accounts
+            <Zap class="w-3.5 h-3.5 text-amber-500" />
+            <span>${{ spentUsd }} / ${{ capUsd }}</span>
+          </Link>
+
+          <!-- Notification Bell -->
+          <button class="relative w-9 h-9 rounded-full bg-white border border-slate-200/80 shadow-sm flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            <Bell class="w-4 h-4" />
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
+          </button>
+
+          <!-- User Avatar -->
+          <Link href="/settings" class="relative block group">
+            <img
+              :src="user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&q=80'"
+              :alt="user?.name || 'User'"
+              class="w-9 h-9 rounded-full object-cover ring-2 ring-white shadow-sm group-hover:ring-[#9EE493] transition"
+            />
+            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#10B981] ring-2 ring-white"></span>
           </Link>
         </div>
 
-        <!-- Budget Gauge indicator -->
+      </div>
+
+      <!-- Mobile Navigation Drawer Strip -->
+      <div class="flex md:hidden items-center gap-1 overflow-x-auto py-2 px-1 scrollbar-none mt-2">
         <Link
-          href="/settings"
-          class="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full text-xs font-mono text-indigo-300 hover:bg-indigo-500/20 transition"
+          v-for="item in navItems"
+          :key="item.name"
+          :href="item.href"
+          :class="[
+            'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap',
+            item.active
+              ? 'bg-[#9EE493] text-slate-900 font-semibold'
+              : 'bg-white text-slate-600 border border-slate-200/80'
+          ]"
         >
-          <Zap class="w-3.5 h-3.5 text-indigo-400" />
-          <span>${{ spentUsd }} / ${{ capUsd }}</span>
+          {{ item.name }}
         </Link>
-
-        <button class="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition">
-          <Bell class="w-4 h-4" />
-        </button>
-
-        <img
-          :src="user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&q=80'"
-          :alt="user?.name || 'User'"
-          class="w-7 h-7 rounded-full border border-white/20 object-cover"
-        />
       </div>
     </header>
 
-    <div class="flex-1 flex">
-      <!-- Sidebar -->
-      <aside class="w-56 border-r border-white/10 bg-surface-elevated/40 flex flex-col p-3 gap-1">
-        <Link
-          href="/dashboard"
-          :class="[
-            'flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition',
-            activePath === '/' || activePath.startsWith('/dashboard')
-              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
-              : 'text-gray-400 hover:bg-white/5 hover:text-white'
-          ]"
-        >
-          <LayoutDashboard class="w-4 h-4 text-indigo-400" />
-          <span>Dashboard</span>
-        </Link>
-
-        <Link
-          href="/inbox"
-          :class="[
-            'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition',
-            activePath.startsWith('/inbox')
-              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
-              : 'text-gray-400 hover:bg-white/5 hover:text-white'
-          ]"
-        >
-          <div class="flex items-center gap-3">
-            <Inbox class="w-4 h-4 text-blue-400" />
-            <span>Review Inbox</span>
-          </div>
-          <span
-            v-if="inboxCount > 0"
-            class="px-1.5 py-0.5 text-[10px] font-mono rounded bg-indigo-500/30 text-indigo-200 border border-indigo-500/40"
-          >
-            {{ inboxCount }}
-          </span>
-        </Link>
-
-        <Link
-          href="/calendar"
-          :class="[
-            'flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition',
-            activePath.startsWith('/calendar')
-              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
-              : 'text-gray-400 hover:bg-white/5 hover:text-white'
-          ]"
-        >
-          <Calendar class="w-4 h-4 text-emerald-400" />
-          <span>Calendar & Queue</span>
-        </Link>
-
-        <Link
-          href="/trends"
-          :class="[
-            'flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition',
-            activePath.startsWith('/trends')
-              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
-              : 'text-gray-400 hover:bg-white/5 hover:text-white'
-          ]"
-        >
-          <Flame class="w-4 h-4 text-amber-400" />
-          <span>Trend Feed</span>
-        </Link>
-
-        <Link
-          href="/media"
-          :class="[
-            'flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition',
-            activePath.startsWith('/media')
-              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
-              : 'text-gray-400 hover:bg-white/5 hover:text-white'
-          ]"
-        >
-          <Image class="w-4 h-4 text-cyan-400" />
-          <span>Media Studio</span>
-        </Link>
-
-        <Link
-          href="/analytics"
-          :class="[
-            'flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition',
-            activePath.startsWith('/analytics')
-              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
-              : 'text-gray-400 hover:bg-white/5 hover:text-white'
-          ]"
-        >
-          <BarChart3 class="w-4 h-4 text-purple-400" />
-          <span>Analytics</span>
-        </Link>
-
-        <div class="mt-auto border-t border-white/5 pt-2">
-          <Link
-            href="/settings"
-            :class="[
-              'flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition',
-              activePath.startsWith('/settings')
-                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
-                : 'text-gray-400 hover:bg-white/5 hover:text-white'
-            ]"
-          >
-            <Settings class="w-4 h-4 text-gray-400" />
-            <span>Settings & Vault</span>
-          </Link>
-        </div>
-      </aside>
-
-      <!-- Main Workspace View -->
-      <main class="flex-1 p-8 overflow-y-auto">
-        <slot />
-      </main>
-    </div>
+    <!-- Main Workspace View -->
+    <main class="flex-1 px-4 sm:px-6 lg:px-8 py-5 max-w-[1600px] mx-auto w-full">
+      <slot />
+    </main>
   </div>
 </template>

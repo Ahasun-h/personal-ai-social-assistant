@@ -10,49 +10,55 @@ export default {
     extend: {
       colors: {
         canvas: {
-          DEFAULT: '#0B0F19',
+          DEFAULT: '#F4F6F8',
+          alt: '#EEF2F6',
         },
         surface: {
-          elevated: '#111827',
-          card: '#1F2937',
-          'card-hover': '#283548',
+          card: '#FFFFFF',
+          elevated: '#F9FAFB',
+          teal: '#162E35',
+          'teal-dark': '#0F2126',
+        },
+        brand: {
+          mint: '#9EE493',
+          'mint-light': '#B8F2AF',
+          'mint-dark': '#74C69D',
+          emerald: '#10B981',
+          teal: '#1E3A40',
         },
         accent: {
           indigo: {
-            DEFAULT: '#6366F1',
-            hover: '#4F46E5',
+            DEFAULT: '#4F46E5',
+            hover: '#4338CA',
           },
           cyan: {
-            DEFAULT: '#0EA5E9',
-            hover: '#0284C7',
+            DEFAULT: '#0284C7',
+            hover: '#0369A1',
           },
           linkedin: '#0A66C2',
-          x: '#E7E9EA',
+          x: '#0F1419',
         },
         semantic: {
           success: '#10B981',
           warning: '#F59E0B',
           danger: '#F43F5E',
         },
-        border: {
-          subtle: 'rgba(255, 255, 255, 0.08)',
-          strong: 'rgba(255, 255, 255, 0.16)',
-          focus: 'rgba(99, 102, 241, 0.60)',
-        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Plus Jakarta Sans', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       boxShadow: {
-        glass: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-        elevated: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
-        glow: '0 0 20px -3px rgba(99, 102, 241, 0.45)',
+        soft: '0 4px 20px -2px rgba(15, 23, 42, 0.04)',
+        card: '0 8px 30px -4px rgba(15, 23, 42, 0.05)',
+        pill: '0 2px 10px rgba(0, 0, 0, 0.04)',
+        contrast: '0 12px 36px -6px rgba(22, 46, 53, 0.25)',
       },
-      backdropBlur: {
-        glass: '12px',
-        modal: '16px',
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.5rem',
+        '4xl': '2rem',
       },
     },
   },

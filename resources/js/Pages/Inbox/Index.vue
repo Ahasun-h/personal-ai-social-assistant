@@ -15,6 +15,7 @@ import {
   Calendar,
   Save,
   Plus,
+  X as CloseIcon,
 } from 'lucide-vue-next';
 
 interface DraftVersion {
@@ -147,73 +148,73 @@ const generateNewAiDraft = async () => {
   <AppLayout title="Review Inbox">
     <Head title="Review Inbox" />
 
-    <div class="max-w-7xl mx-auto space-y-6">
-      <!-- Page Header -->
-      <div class="flex items-center justify-between pb-4 border-b border-white/10">
+    <div class="space-y-6">
+      <!-- Page Header with Action Pills -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
         <div>
-          <h1 class="text-xl font-bold text-white flex items-center gap-2">
-            <Layers class="w-5 h-5 text-indigo-400" />
+          <h1 class="text-xl sm:text-2xl font-display font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Layers class="w-5 h-5 text-emerald-600" />
             Review Inbox & Dual-Platform Preview
           </h1>
-          <p class="text-xs text-gray-400 mt-0.5">
+          <p class="text-xs text-slate-500 mt-1">
             Evaluate, edit, regenerate, and explicitly approve posts before publishing.
           </p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 flex-wrap">
           <button
             @click="showNewModal = true"
-            class="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white border border-white/10 transition"
+            class="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 shadow-sm transition"
           >
-            <Plus class="w-3.5 h-3.5 text-indigo-400" />
+            <Plus class="w-3.5 h-3.5 text-emerald-600" />
             <span>Generate New AI Draft</span>
           </button>
 
           <button
             @click="saveDraftEdits"
-            class="flex items-center gap-1.5 text-xs font-medium px-3.5 py-1.5 rounded-lg bg-surface-card hover:bg-surface-card-hover border border-white/10 text-gray-200 transition"
+            class="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 shadow-sm transition"
           >
-            <Save class="w-3.5 h-3.5 text-cyan-400" />
-            Save Copy
+            <Save class="w-3.5 h-3.5 text-slate-500" />
+            <span>Save Copy</span>
           </button>
 
           <button
             @click="approveDraft"
             :disabled="isApproving || currentDraft?.status === 'approved'"
-            class="flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
+            class="flex items-center gap-1.5 text-xs font-semibold px-5 py-2 rounded-full bg-[#9EE493] hover:bg-[#8ee082] text-slate-900 shadow-sm transition disabled:opacity-50"
           >
             <CheckCircle class="w-4 h-4" />
-            {{ currentDraft?.status === 'approved' ? 'Approved ✓' : 'Approve Draft' }}
+            <span>{{ currentDraft?.status === 'approved' ? 'Approved ✓' : 'Approve Draft' }}</span>
           </button>
 
           <button
             @click="publishImmediately"
             :disabled="isPublishing"
-            class="flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition disabled:opacity-50"
+            class="flex items-center gap-1.5 text-xs font-semibold px-5 py-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition disabled:opacity-50"
           >
-            <Send class="w-4 h-4" />
-            {{ isPublishing ? 'Publishing...' : 'Publish Now' }}
+            <Send class="w-4 h-4 text-[#9EE493]" />
+            <span>{{ isPublishing ? 'Publishing...' : 'Publish Now' }}</span>
           </button>
         </div>
       </div>
 
       <!-- Draft Selector Chips -->
-      <div v-if="drafts.length > 0" class="flex gap-2 overflow-x-auto pb-2 border-b border-white/5">
+      <div v-if="drafts.length > 0" class="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
         <button
           v-for="d in drafts"
           :key="d.id"
           @click="selectDraft(d)"
           :class="[
-            'px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition flex items-center gap-2',
+            'px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition flex items-center gap-2 shadow-sm',
             selectedDraftId === d.id
-              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
-              : 'bg-surface-elevated/60 text-gray-400 border border-white/5 hover:text-white'
+              ? 'bg-slate-900 text-white font-semibold'
+              : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
           ]"
         >
           <span
             :class="[
               'w-2 h-2 rounded-full',
-              d.status === 'approved' ? 'bg-emerald-400' : 'bg-amber-400'
+              d.status === 'approved' ? 'bg-[#10B981]' : 'bg-amber-400'
             ]"
           ></span>
           <span>{{ d.title }}</span>
@@ -221,24 +222,24 @@ const generateNewAiDraft = async () => {
         </button>
       </div>
 
-      <!-- Warning notice for X metered links -->
-      <div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-center justify-between text-xs text-amber-300">
-        <div class="flex items-center gap-2">
-          <AlertTriangle class="w-4 h-4 text-amber-400 flex-shrink-0" />
-          <span>Notice: Publishing on X incurs standard tier metered fees ($0.015/post). Mandatory human approval active.</span>
+      <!-- Notice badge for X metered links -->
+      <div class="bg-amber-50 border border-amber-200/70 rounded-2xl p-3.5 flex items-center justify-between text-xs text-amber-800 shadow-xs">
+        <div class="flex items-center gap-2.5">
+          <AlertTriangle class="w-4 h-4 text-amber-600 shrink-0" />
+          <span>Publishing on X incurs standard tier metered fees ($0.015/post). Mandatory human approval active.</span>
         </div>
-        <span class="font-mono text-[11px] bg-amber-500/20 px-2 py-0.5 rounded">Zero Unauthorized Automation</span>
+        <span class="font-mono text-[11px] bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-medium">Zero Unauthorized Automation</span>
       </div>
 
       <!-- Main Editor & Split Preview Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <!-- Left: Draft Editors -->
-        <div class="lg:col-span-5 space-y-4">
+        <div class="lg:col-span-5 space-y-5">
           <!-- LinkedIn Editor Pane -->
-          <div class="bg-surface-elevated/70 border border-white/10 rounded-2xl p-4 space-y-2 backdrop-blur-sm">
+          <div class="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-blue-400 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span class="text-xs font-bold text-[#0A66C2] flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-[#0A66C2]"></span>
                 LinkedIn Copy (Long-form)
               </span>
               <DynamicCharMeter platform="linkedin" :current-length="linkedinText.length" />
@@ -246,41 +247,41 @@ const generateNewAiDraft = async () => {
             <textarea
               v-model="linkedinText"
               rows="8"
-              class="w-full bg-[#0B0F19] border border-white/10 rounded-xl p-3 text-xs text-gray-200 focus:outline-none focus:border-indigo-500 leading-relaxed font-sans"
+              class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-800 focus:outline-none focus:border-slate-400 leading-relaxed font-sans"
             ></textarea>
           </div>
 
           <!-- X Editor Pane -->
-          <div class="bg-surface-elevated/70 border border-white/10 rounded-2xl p-4 space-y-2 backdrop-blur-sm">
+          <div class="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-gray-200 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-white"></span>
+              <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-slate-900"></span>
                 X (Twitter) Copy
               </span>
               <DynamicCharMeter platform="x_twitter" :current-length="xText.length" />
             </div>
             <textarea
               v-model="xText"
-              rows="4"
-              class="w-full bg-[#0B0F19] border border-white/10 rounded-xl p-3 text-xs text-gray-200 focus:outline-none focus:border-indigo-500 leading-relaxed font-sans"
+              rows="5"
+              class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-800 focus:outline-none focus:border-slate-400 leading-relaxed font-sans"
             ></textarea>
           </div>
         </div>
 
         <!-- Right: Native Side-by-Side Live Previews -->
-        <div class="lg:col-span-7 space-y-4">
+        <div class="lg:col-span-7 space-y-5">
           <LinkedInCardPreview
             :content="linkedinText"
             :media-url="mediaPreviewUrl"
-            author-name="Alex Rivera, PE"
-            author-title="Staff Distributed Systems Architect"
+            author-name="Alex Rivera"
+            author-headline="Founder & Lead AI Systems Architect"
           />
 
           <XPostPreview
             :content="xText"
             :media-url="mediaPreviewUrl"
             author-name="Alex Rivera"
-            author-handle="alexrivera_tech"
+            author-handle="@alexrivera_tech"
           />
         </div>
       </div>
@@ -288,14 +289,20 @@ const generateNewAiDraft = async () => {
       <!-- New AI Draft Generation Modal -->
       <div
         v-if="showNewModal"
-        class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4"
       >
-        <div class="bg-surface-elevated border border-white/10 rounded-2xl p-6 max-w-lg w-full space-y-4">
-          <h3 class="font-bold text-white text-base flex items-center gap-2">
-            <Sparkles class="w-5 h-5 text-indigo-400" />
-            Generate New Multi-Platform AI Draft
-          </h3>
-          <p class="text-xs text-gray-400">
+        <div class="bg-white border border-slate-200 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="font-display font-bold text-slate-900 text-base flex items-center gap-2">
+              <Sparkles class="w-5 h-5 text-emerald-600" />
+              Generate New Multi-Platform AI Draft
+            </h3>
+            <button @click="showNewModal = false" class="text-slate-400 hover:text-slate-600">
+              <CloseIcon class="w-5 h-5" />
+            </button>
+          </div>
+
+          <p class="text-xs text-slate-500">
             Enter a topic, architecture thesis, or article link. The AI engine will produce LinkedIn long-form and punchy X thread copy enforcing your brand tone guidelines.
           </p>
 
@@ -303,20 +310,20 @@ const generateNewAiDraft = async () => {
             v-model="newTopicPrompt"
             rows="4"
             placeholder="e.g. Why PostgreSQL 17 logical replication improvements make change data capture significantly cheaper..."
-            class="w-full bg-[#0B0F19] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 font-sans"
+            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-800 focus:outline-none focus:border-slate-400 font-sans"
           ></textarea>
 
-          <div class="flex justify-end gap-3 pt-3 border-t border-white/10">
+          <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
             <button
               @click="showNewModal = false"
-              class="px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white"
+              class="px-4 py-2 rounded-full text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
             >
               Cancel
             </button>
             <button
               @click="generateNewAiDraft"
               :disabled="isGenerating || !newTopicPrompt"
-              class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-sm text-white shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
+              class="px-5 py-2 rounded-full bg-[#9EE493] hover:bg-[#8ee082] font-semibold text-xs text-slate-900 shadow-sm transition disabled:opacity-50"
             >
               {{ isGenerating ? 'Generating...' : 'Generate Multi-Platform Draft' }}
             </button>

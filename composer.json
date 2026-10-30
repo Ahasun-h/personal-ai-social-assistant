@@ -1,0 +1,54 @@
+{
+    "name": "enterprise/personal-ai-social-assistant",
+    "type": "project",
+    "description": "Personal AI Social Media Assistant for LinkedIn and X with automated trend curation, multi-modal generation, review inbox, and Horizon queue scheduling.",
+    "keywords": ["laravel", "inertia", "vue", "social-media", "linkedin", "x", "twitter", "ai", "horizon"],
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2|^8.3|^8.4|^8.5",
+        "ext-json": "*",
+        "ext-pdo": "*",
+        "guzzlehttp/guzzle": "^7.8",
+        "illuminate/contracts": "^11.0|^12.0",
+        "inertiajs/inertia-laravel": "^2.0",
+        "laravel/framework": "^11.0|^12.0",
+        "laravel/horizon": "^5.24",
+        "laravel/sanctum": "^4.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "laravel/pint": "^1.14",
+        "mockery/mockery": "^1.6",
+        "pestphp/pest": "^2.34|^3.0",
+        "pestphp/pest-plugin-laravel": "^2.3|^3.0",
+        "phpunit/phpunit": "^10.5|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "lint": "vendor/bin/pint"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

@@ -164,4 +164,40 @@ class ApiEndpointsTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.is_dismissed', true);
     }
+
+    public function test_manual_social_account_connection(): void
+    {
+        $response = $this->postJson('/api/v1/accounts', [
+            'provider' => 'linkedin',
+            'name' => 'Real LinkedIn',
+            'username' => 'reallinkedin',
+            'access_token' => 'real_access_token_123',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.username', 'reallinkedin')
+            ->assertJsonPath('data.is_active', true);
+    }
+
+    public function test_draft_update_endpoint(): void
+    {
+        $draft = Draft::create([
+            'user_id' => $this->user->id,
+            'title' => 'Original Title',
+            'status' => Draft::STATUS_IN_REVIEW,
+        ]);
+
+        $response = $this->putJson("/api/v1/drafts/{$draft->id}", [
+            'title' => 'Updated Title',
+            'platform' => 'linkedin',
+            'content' => 'Freshly updated content body',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.title', 'Updated Title');
+
+        $this->assertEquals('Updated Title', $draft->fresh()->title);
+    }
 }

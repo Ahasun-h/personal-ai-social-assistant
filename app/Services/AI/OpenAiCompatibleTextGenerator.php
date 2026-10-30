@@ -108,3 +108,4 @@ class OpenAiCompatibleTextGenerator implements TextGeneratorInterface
         return true;
     }
 }
+

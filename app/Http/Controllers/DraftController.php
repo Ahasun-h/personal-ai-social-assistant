@@ -51,6 +51,47 @@ class DraftController extends Controller
         ]);
     }
 
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $draft = Draft::with('versions')->findOrFail($id);
+
+        $platform = $request->input('platform');
+        $content = $request->input('content');
+        $title = $request->input('title');
+
+        if ($title) {
+            $draft->update(['title' => $title]);
+        }
+
+        if ($platform && $content !== null) {
+            $version = $draft->versions()->where('platform', $platform)->latest('version_number')->first();
+            if ($version) {
+                $version->update([
+                    'content' => $content,
+                    'character_count' => mb_strlen($content),
+                ]);
+            } else {
+                DraftVersion::create([
+                    'draft_id' => $draft->id,
+                    'version_number' => 1,
+                    'platform' => $platform,
+                    'content' => $content,
+                    'character_count' => mb_strlen($content),
+                ]);
+            }
+        }
+
+        AuditLog::record('update_draft_copy', $draft, $request->user()?->id, null, [
+            'platform' => $platform,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Draft copy updated successfully.',
+            'data' => $draft->load('versions'),
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -148,14 +189,19 @@ class DraftController extends Controller
 
     public function generateAi(Request $request, TextGeneratorInterface $ai, CostControlService $costService): JsonResponse
     {
-        $validated = $request->validate([
-            'topic_or_idea' => 'required|string',
-            'platforms' => 'nullable|array',
-            'tone_style' => 'nullable|string',
-        ]);
+        $topic = $request->input('topic_or_idea') ?? $request->input('topic');
+        if (empty($topic)) {
+            return response()->json([
+                'message' => 'The topic or idea field is required.',
+                'errors' => ['topic_or_idea' => ['The topic or idea field is required.']],
+            ], 422);
+        }
+
+        $tone = $request->input('tone_style') ?? $request->input('tone', 'thought_leader');
+        $platforms = $request->input('platforms', ['linkedin', 'x_twitter']);
 
         $user = $request->user() ?? User::first();
-        $estimatedCost = 0.03; // Estimated Gemini/Claude tokens cost
+        $estimatedCost = 0.03; // Estimated tokens cost
 
         // Enforce hard spend caps & budget warnings
         if ($user) {
@@ -163,9 +209,9 @@ class DraftController extends Controller
         }
 
         $prompt = new DraftPrompt(
-            topic: $validated['topic_or_idea'],
-            toneStyle: $validated['tone_style'] ?? 'thought_leader',
-            targetPlatforms: $validated['platforms'] ?? ['linkedin', 'x_twitter']
+            topic: $topic,
+            toneStyle: $tone,
+            targetPlatforms: $platforms
         );
 
         $results = $ai->generateDrafts($prompt);
@@ -175,10 +221,10 @@ class DraftController extends Controller
 
         $draft = Draft::create([
             'user_id' => $user->id,
-            'title' => substr($validated['topic_or_idea'], 0, 80),
+            'title' => substr($topic, 0, 80),
             'status' => Draft::STATUS_IN_REVIEW,
-            'target_platforms' => $validated['platforms'] ?? ['linkedin', 'x_twitter'],
-            'ai_prompt_context' => $validated['topic_or_idea'],
+            'target_platforms' => $platforms,
+            'ai_prompt_context' => $topic,
         ]);
 
         DraftVersion::create([

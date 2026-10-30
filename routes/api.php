@@ -19,26 +19,28 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/accounts/oauth/{provider}/redirect', [SocialAccountController::class, 'redirect']);
     Route::post('/accounts/oauth/{provider}/callback', [SocialAccountController::class, 'callback']);
 
-    // Authenticated API Resources (Protected by Sanctum)
-    Route::middleware('auth:sanctum')->group(function () {
+    // Authenticated API Resources (Protected by Sanctum & Web Session)
+    Route::middleware('auth:sanctum,web')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
         // Social Accounts
         Route::get('/accounts', [SocialAccountController::class, 'index']);
         Route::post('/accounts', [SocialAccountController::class, 'store']);
+        Route::post('/accounts/clear-demo', [SocialAccountController::class, 'clearDemoAccounts']);
         Route::delete('/accounts/{id}/disconnect', [SocialAccountController::class, 'disconnect']);
 
         // Trends & Intelligence
         Route::get('/trends/items', [TrendController::class, 'index']);
-        Route::patch('/trends/items/{id}/bookmark', [TrendController::class, 'bookmark']);
-        Route::patch('/trends/items/{id}/dismiss', [TrendController::class, 'dismiss']);
+        Route::match(['post', 'patch'], '/trends/items/{id}/bookmark', [TrendController::class, 'bookmark']);
+        Route::match(['post', 'patch'], '/trends/items/{id}/dismiss', [TrendController::class, 'dismiss']);
         Route::post('/trends/sync', [TrendController::class, 'triggerSync']);
 
         // Drafts & AI Content
         Route::get('/drafts', [DraftController::class, 'index']);
         Route::post('/drafts', [DraftController::class, 'store']);
         Route::get('/drafts/{id}', [DraftController::class, 'show']);
+        Route::put('/drafts/{id}', [DraftController::class, 'update']);
         Route::post('/drafts/{id}/approve', [DraftController::class, 'approve']);
         Route::post('/drafts/{id}/publish-now', [DraftController::class, 'publishNow']);
         Route::post('/drafts/ai/generate', [DraftController::class, 'generateAi']);
@@ -46,6 +48,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         // Media & Studio
         Route::get('/media', [MediaController::class, 'index']);
         Route::post('/media/upload', [MediaController::class, 'upload']);
+        Route::delete('/media/{id}', [MediaController::class, 'destroy']);
         Route::post('/media/ai/generate', [MediaController::class, 'generateAi']);
 
         // Calendar & Schedules

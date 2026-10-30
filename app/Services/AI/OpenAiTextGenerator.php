@@ -101,3 +101,4 @@ class OpenAiTextGenerator implements TextGeneratorInterface
         ];
     }
 }
+

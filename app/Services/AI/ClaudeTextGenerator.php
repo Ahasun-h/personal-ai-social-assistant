@@ -92,3 +92,4 @@ class ClaudeTextGenerator implements TextGeneratorInterface
         return true;
     }
 }
+

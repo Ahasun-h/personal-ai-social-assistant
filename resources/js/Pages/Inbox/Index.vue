@@ -81,66 +81,110 @@ const isApproving = ref(false);
 const isGenerating = ref(false);
 const newTopicPrompt = ref('');
 const showNewModal = ref(false);
+const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null);
+
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  toast.value = { message, type };
+  setTimeout(() => {
+    toast.value = null;
+  }, 4000);
+};
 
 const approveDraft = async () => {
   if (!currentDraft.value) return;
   isApproving.value = true;
-  await fetch(`/api/v1/drafts/${currentDraft.value.id}/approve`, { method: 'POST' });
-  isApproving.value = false;
-  router.reload();
+  try {
+    const res = await fetch(`/api/v1/drafts/${currentDraft.value.id}/approve`, { method: 'POST' });
+    if (res.ok) {
+      showToast('Draft approved! Ready for scheduling or immediate publishing.');
+      router.reload();
+    } else {
+      const err = await res.json();
+      showToast(err.message || 'Approval failed', 'error');
+    }
+  } catch (e: any) {
+    showToast(e.message, 'error');
+  } finally {
+    isApproving.value = false;
+  }
 };
 
 const publishImmediately = async () => {
   if (!currentDraft.value) return;
   if (currentDraft.value.status !== 'approved') {
-    alert('Mandatory Security Rule: Draft must be explicitly approved by owner before publishing.');
+    showToast('Mandatory Rule: Draft must be approved by owner before publishing.', 'error');
     return;
   }
   isPublishing.value = true;
-  await fetch(`/api/v1/drafts/${currentDraft.value.id}/publish-now`, { method: 'POST' });
-  isPublishing.value = false;
-  alert('Post dispatched to platform queues successfully!');
-  router.reload();
+  try {
+    const res = await fetch(`/api/v1/drafts/${currentDraft.value.id}/publish-now`, { method: 'POST' });
+    if (res.ok) {
+      showToast('Post dispatched to platform queues successfully!');
+      router.reload();
+    } else {
+      const err = await res.json();
+      showToast(err.message || 'Publishing failed', 'error');
+    }
+  } catch (e: any) {
+    showToast(e.message, 'error');
+  } finally {
+    isPublishing.value = false;
+  }
 };
 
 const saveDraftEdits = async () => {
   if (!currentDraft.value) return;
-  await fetch(`/api/v1/drafts/${currentDraft.value.id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      content: linkedinText.value,
-      platform: 'linkedin',
-    }),
-  });
-  await fetch(`/api/v1/drafts/${currentDraft.value.id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      content: xText.value,
-      platform: 'x_twitter',
-    }),
-  });
-  alert('Draft revisions saved successfully.');
-  router.reload();
+  try {
+    await fetch(`/api/v1/drafts/${currentDraft.value.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: linkedinText.value,
+        platform: 'linkedin',
+      }),
+    });
+    await fetch(`/api/v1/drafts/${currentDraft.value.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: xText.value,
+        platform: 'x_twitter',
+      }),
+    });
+    showToast('Draft revisions saved successfully.');
+    router.reload();
+  } catch (e: any) {
+    showToast(e.message, 'error');
+  }
 };
 
 const generateNewAiDraft = async () => {
   if (!newTopicPrompt.value) return;
   isGenerating.value = true;
-  await fetch('/api/v1/drafts/ai/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      topic: newTopicPrompt.value,
-      tone: 'pragmatic_architect',
-      platforms: ['linkedin', 'x_twitter'],
-    }),
-  });
-  isGenerating.value = false;
-  showNewModal.value = false;
-  newTopicPrompt.value = '';
-  router.reload();
+  try {
+    const res = await fetch('/api/v1/drafts/ai/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic: newTopicPrompt.value,
+        tone: 'pragmatic_architect',
+        platforms: ['linkedin', 'x_twitter'],
+      }),
+    });
+    if (res.ok) {
+      showToast('New AI draft synthesized and placed in Review Inbox!');
+      showNewModal.value = false;
+      newTopicPrompt.value = '';
+      router.reload();
+    } else {
+      const err = await res.json();
+      showToast(err.message || 'Generation failed', 'error');
+    }
+  } catch (e: any) {
+    showToast(e.message, 'error');
+  } finally {
+    isGenerating.value = false;
+  }
 };
 </script>
 
@@ -196,6 +240,13 @@ const generateNewAiDraft = async () => {
             <span>{{ isPublishing ? 'Publishing...' : 'Publish Now' }}</span>
           </button>
         </div>
+      </div>
+
+      <!-- Toast Banner -->
+      <div v-if="toast" class="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold shadow-sm transition" :class="toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'">
+        <CheckCircle v-if="toast.type === 'success'" class="w-4 h-4 text-emerald-600" />
+        <AlertTriangle v-else class="w-4 h-4 text-rose-600" />
+        <span>{{ toast.message }}</span>
       </div>
 
       <!-- Draft Selector Chips -->

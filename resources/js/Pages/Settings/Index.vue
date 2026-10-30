@@ -232,10 +232,18 @@ const startOAuth = (provider: 'linkedin' | 'x_twitter') => {
   fetch(`/api/v1/accounts/oauth/${provider}/redirect`)
     .then((r) => r.json())
     .then((data) => {
-      if (data.auth_url) {
-        window.location.href = data.auth_url;
+      const url = data.auth_url || data.data?.authorization_url || data.data?.auth_url;
+      if (url) {
+        window.location.href = url;
       }
     });
+};
+
+const clearDemo = async () => {
+  if (confirm('Clear demo accounts? Only your real connected accounts will be shown.')) {
+    await fetch('/api/v1/accounts/clear-demo', { method: 'POST' });
+    router.reload();
+  }
 };
 
 const saveManualAccount = () => {
@@ -628,6 +636,15 @@ const saveManualAccount = () => {
             >
               <Key class="w-4 h-4 text-emerald-600" />
               <span>Enter Developer Token Manually</span>
+            </button>
+
+            <button
+              @click="clearDemo"
+              class="flex items-center gap-2 px-5 py-2.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs border border-rose-200 shadow-sm transition ml-auto"
+              title="Remove pre-seeded sample accounts so you can connect your own"
+            >
+              <Trash2 class="w-4 h-4 text-rose-600" />
+              <span>Clear Sample Demo Accounts</span>
             </button>
           </div>
         </div>

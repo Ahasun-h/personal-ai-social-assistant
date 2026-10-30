@@ -58,7 +58,73 @@ class SocialAccountController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => ['authorization_url' => $url],
+            'auth_url' => $url,
+            'data' => [
+                'authorization_url' => $url,
+                'auth_url' => $url,
+            ],
+        ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'provider' => 'required|in:linkedin,x_twitter',
+            'name' => 'required|string|max:255',
+            'username' => 'required|string|max:255',
+            'access_token' => 'required|string',
+            'refresh_token' => 'nullable|string',
+            'avatar_url' => 'nullable|string',
+        ]);
+
+        $user = $request->user() ?: User::first();
+
+        $account = SocialAccount::updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'provider' => $validated['provider'],
+                'username' => $validated['username'],
+            ],
+            [
+                'provider_account_id' => $validated['provider'] . '_' . md5($validated['username']),
+                'name' => $validated['name'],
+                'avatar_url' => $validated['avatar_url'] ?? null,
+                'access_token' => $validated['access_token'],
+                'refresh_token' => $validated['refresh_token'] ?? null,
+                'token_type' => 'Bearer',
+                'token_expires_at' => now()->addDays(60),
+                'is_active' => true,
+            ]
+        );
+
+        AuditLog::record('manual_connect_account', $account, $user->id, null, [
+            'provider' => $validated['provider'],
+            'username' => $validated['username'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $account->id,
+                'provider' => $account->provider,
+                'name' => $account->name,
+                'username' => $account->username,
+                'token_expires_at' => $account->token_expires_at?->toISOString(),
+                'days_remaining' => 60,
+                'is_active' => true,
+            ],
+        ], 201);
+    }
+
+    public function clearDemoAccounts(): JsonResponse
+    {
+        SocialAccount::whereIn('username', ['alexrivera_tech', 'alex-rivera-architect'])
+            ->orWhere('access_token', 'like', '%mock%')
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Demo mock accounts removed.',
         ]);
     }
 

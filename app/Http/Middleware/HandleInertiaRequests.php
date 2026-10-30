@@ -40,6 +40,9 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $currentUser = $request->user() ?: User::first();
+        if ($currentUser && !auth()->check()) {
+            auth()->login($currentUser);
+        }
         $accounts = SocialAccount::where('is_active', true)->get()->map(function ($acc) {
             $daysLeft = $acc->token_expires_at ? max(0, (int) now()->diffInDays($acc->token_expires_at, false)) : null;
             return [

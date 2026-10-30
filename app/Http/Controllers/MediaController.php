@@ -42,18 +42,17 @@ class MediaController extends Controller
         $user = User::first();
 
         $path = $file->store('media', 'public');
+        $url = '/storage/' . $path;
         $mime = $file->getClientMimeType();
-        $mediaType = str_starts_with($mime, 'video/') ? 'video' : (str_ends_with($mime, 'gif') ? 'gif' : 'image');
 
         $asset = MediaAsset::create([
             'user_id' => $user->id,
-            'media_type' => $mediaType,
-            'file_path' => $path,
-            'file_name' => $file->getClientOriginalName(),
+            'filename' => $file->getClientOriginalName(),
+            'disk' => 'public',
+            'path' => $url,
             'mime_type' => $mime,
             'file_size_bytes' => $file->getSize(),
             'alt_text' => $request->input('alt_text'),
-            'source' => 'upload',
             'is_ai_generated' => false,
         ]);
 
@@ -90,5 +89,18 @@ class MediaController extends Controller
             'success' => true,
             'data' => $asset,
         ], 201);
+    }
+
+    public function destroy(string $id): JsonResponse
+    {
+        $asset = MediaAsset::findOrFail($id);
+        $asset->delete();
+
+        AuditLog::record('delete_media', $asset);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Asset deleted successfully.',
+        ]);
     }
 }

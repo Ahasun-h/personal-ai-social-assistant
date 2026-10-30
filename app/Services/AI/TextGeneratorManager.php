@@ -154,32 +154,47 @@ class TextGeneratorManager
         $startTime = microtime(true);
         $testTopic = "High-leverage engineering leadership";
 
+        if (empty($credentials['api_key']) && $provider !== 'custom') {
+            return [
+                'success' => false,
+                'error' => "API key is empty. Please enter your " . strtoupper($provider) . " API key.",
+                'latency_ms' => 0,
+            ];
+        }
+
         try {
+            $testClient = new \GuzzleHttp\Client(['timeout' => 10, 'connect_timeout' => 5]);
+
             $driver = match ($provider) {
                 'openai' => new OpenAiTextGenerator(
                     apiKey: $credentials['api_key'] ?? null,
                     model: $credentials['model'] ?? 'gpt-4o',
-                    baseUrl: $credentials['base_url'] ?? null
+                    baseUrl: $credentials['base_url'] ?? null,
+                    client: $testClient
                 ),
                 'claude' => new ClaudeTextGenerator(
                     apiKey: $credentials['api_key'] ?? null,
-                    model: $credentials['model'] ?? 'claude-3-5-sonnet-20241022'
+                    model: $credentials['model'] ?? 'claude-3-5-sonnet-20241022',
+                    client: $testClient
                 ),
                 'z_ai' => new OpenAiCompatibleTextGenerator(
                     apiKey: $credentials['api_key'] ?? null,
                     baseUrl: $credentials['base_url'] ?? 'https://api.z-ai.io/v1',
                     model: $credentials['model'] ?? 'z-ai-large',
-                    providerLabel: 'Z AI'
+                    providerLabel: 'Z AI',
+                    client: $testClient
                 ),
                 'custom' => new OpenAiCompatibleTextGenerator(
                     apiKey: $credentials['api_key'] ?? null,
                     baseUrl: $credentials['base_url'] ?? 'http://localhost:11434/v1',
                     model: $credentials['model'] ?? 'llama3.2',
-                    providerLabel: 'Custom LLM'
+                    providerLabel: 'Custom LLM',
+                    client: $testClient
                 ),
                 default => new GeminiTextGenerator(
                     apiKey: $credentials['api_key'] ?? null,
-                    model: $credentials['model'] ?? 'gemini-1.5-pro'
+                    model: $credentials['model'] ?? 'gemini-1.5-flash',
+                    client: $testClient
                 ),
             };
 

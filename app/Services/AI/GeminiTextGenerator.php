@@ -56,9 +56,22 @@ class GeminiTextGenerator implements TextGeneratorInterface
                 'thread' => [],
             ];
         } catch (GuzzleException $e) {
-            Log::error("Gemini API error: " . $e->getMessage());
-            return $this->generateDrafts(new DraftPrompt($prompt->topic)); // fallback
+            $msg = $this->extractErrorMessage($e);
+            Log::error("Gemini API error: " . $msg);
+            throw new \RuntimeException($msg);
         }
+    }
+
+    protected function extractErrorMessage(\Throwable $e): string
+    {
+        if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->hasResponse()) {
+            $body = (string) $e->getResponse()->getBody();
+            $json = json_decode($body, true);
+            if (!empty($json['error']['message'])) {
+                return $json['error']['message'];
+            }
+        }
+        return $e->getMessage();
     }
 
     public function refine(string $content, string $instruction, string $platform): string

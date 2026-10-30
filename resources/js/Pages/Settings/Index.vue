@@ -124,7 +124,10 @@ const testAiConnection = async (providerName: string) => {
     const creds = aiProviders.value[providerName];
     const res = await fetch('/api/v1/ai/test', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: JSON.stringify({
         provider: providerName,
         credentials: {
@@ -134,7 +137,16 @@ const testAiConnection = async (providerName: string) => {
         },
       }),
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {
+        success: false,
+        error: `Server responded with HTTP ${res.status}: Check that your API key and target model are valid.`,
+      };
+    }
     testResult.value = data;
   } catch (err: any) {
     testResult.value = { success: false, error: err.message };

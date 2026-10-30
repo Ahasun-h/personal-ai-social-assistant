@@ -39,4 +39,9 @@ class PostMedia extends Model
     {
         return $this->belongsTo(MediaAsset::class, 'media_asset_id');
     }
+
+    public function mediaAsset(): BelongsTo
+    {
+        return $this->belongsTo(MediaAsset::class, 'media_asset_id');
+    }
 }

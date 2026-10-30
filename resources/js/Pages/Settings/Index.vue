@@ -15,7 +15,15 @@ import {
   Plus,
   Save,
   ExternalLink,
+  Cpu,
+  Bot,
+  Sparkles,
+  Server,
+  Play,
+  Check,
   X as CloseIcon,
+  Eye,
+  EyeOff,
 } from 'lucide-vue-next';
 
 interface Account {
@@ -43,12 +51,119 @@ interface Props {
   categories: Category[];
   brandVoice?: Record<string, any>;
   budget?: Record<string, any>;
+  aiConfig?: Record<string, any>;
 }
 
 const props = defineProps<Props>();
 
-const activeTab = ref<'accounts' | 'brand' | 'budget'>('accounts');
+const activeTab = ref<'accounts' | 'ai' | 'brand' | 'budget'>('ai');
 
+// AI Providers Configuration State
+const activeProvider = ref<string>(props.aiConfig?.active_provider || 'gemini');
+
+const aiProviders = ref<Record<string, any>>({
+  gemini: {
+    label: 'Google Gemini',
+    badge: 'Official Google GenAI',
+    api_key: props.aiConfig?.providers?.gemini?.api_key || '',
+    model: props.aiConfig?.providers?.gemini?.model || 'gemini-1.5-pro',
+    models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'],
+    description: 'High-speed multi-modal reasoning with expansive context windows.',
+  },
+  openai: {
+    label: 'OpenAI',
+    badge: 'GPT-4o & Reasoning',
+    api_key: props.aiConfig?.providers?.openai?.api_key || '',
+    model: props.aiConfig?.providers?.openai?.model || 'gpt-4o',
+    models: ['gpt-4o', 'gpt-4o-mini', 'o1-preview', 'o1-mini', 'gpt-4-turbo'],
+    description: 'Industry benchmark for nuance, structured JSON generation, and tone accuracy.',
+  },
+  claude: {
+    label: 'Anthropic Claude',
+    badge: 'Claude 3.5 Sonnet',
+    api_key: props.aiConfig?.providers?.claude?.api_key || '',
+    model: props.aiConfig?.providers?.claude?.model || 'claude-3-5-sonnet-20241022',
+    models: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+    description: 'Best-in-class natural prose, contrarian thought-leadership, and minimal fluff.',
+  },
+  z_ai: {
+    label: 'Z AI',
+    badge: 'High-Throughput Enterprise',
+    api_key: props.aiConfig?.providers?.z_ai?.api_key || '',
+    base_url: props.aiConfig?.providers?.z_ai?.base_url || 'https://api.z-ai.io/v1',
+    model: props.aiConfig?.providers?.z_ai?.model || 'z-ai-large',
+    models: ['z-ai-large', 'z-ai-pro', 'z-ai-coder'],
+    description: 'Fast, dedicated inference endpoint powered by Z AI infrastructure.',
+  },
+  custom: {
+    label: 'Custom OpenAI-Compatible',
+    badge: 'Groq / DeepSeek / Ollama / LM Studio',
+    api_key: props.aiConfig?.providers?.custom?.api_key || '',
+    base_url: props.aiConfig?.providers?.custom?.base_url || 'http://localhost:11434/v1',
+    model: props.aiConfig?.providers?.custom?.model || 'llama3.2',
+    models: ['llama3.2', 'deepseek-chat', 'llama-3.1-70b', 'mixtral-8x7b'],
+    description: 'Connect ANY OpenAI-compatible API, self-hosted Ollama server, or custom gateway.',
+  },
+});
+
+const showKeys = ref<Record<string, boolean>>({
+  gemini: false,
+  openai: false,
+  claude: false,
+  z_ai: false,
+  custom: false,
+});
+
+const isTesting = ref(false);
+const testResult = ref<any>(null);
+
+const testAiConnection = async (providerName: string) => {
+  isTesting.value = true;
+  testResult.value = null;
+  try {
+    const creds = aiProviders.value[providerName];
+    const res = await fetch('/api/v1/ai/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: providerName,
+        credentials: {
+          api_key: creds.api_key,
+          base_url: creds.base_url,
+          model: creds.model,
+        },
+      }),
+    });
+    const data = await res.json();
+    testResult.value = data;
+  } catch (err: any) {
+    testResult.value = { success: false, error: err.message };
+  } finally {
+    isTesting.value = false;
+  }
+};
+
+const saveAiConfig = async () => {
+  isSaving.value = true;
+  try {
+    await fetch('/api/v1/ai/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        active_provider: activeProvider.value,
+        providers: aiProviders.value,
+      }),
+    });
+    saveSuccess.value = true;
+    setTimeout(() => {
+      saveSuccess.value = false;
+    }, 3000);
+  } finally {
+    isSaving.value = false;
+  }
+};
+
+// Brand & Budget Form States
 const brandForm = ref({
   tone: props.brandVoice?.tone || 'Architectural, pragmatic, data-grounded, zero-hype',
   bannedWords: props.brandVoice?.banned_buzzwords?.join(', ') || 'revolutionary, game-changer, supercharge, paradigm-shift, delve',
@@ -167,7 +282,7 @@ const saveManualAccount = () => {
             Security Vault & Configuration
           </h1>
           <p class="text-xs text-slate-500 mt-1">
-            AES-256 encrypted credential storage, brand persona voice rules, and strict budget caps.
+            AES-256 encrypted credential storage, BYO-AI model configurations, brand persona rules, and strict budget caps.
           </p>
         </div>
 
@@ -178,6 +293,17 @@ const saveManualAccount = () => {
           </span>
 
           <button
+            v-if="activeTab === 'ai'"
+            @click="saveAiConfig"
+            :disabled="isSaving"
+            class="flex items-center gap-2 px-5 py-2 rounded-full bg-[#9EE493] hover:bg-[#8ee082] text-slate-900 font-semibold text-xs shadow-sm transition disabled:opacity-50"
+          >
+            <Save class="w-3.5 h-3.5" />
+            <span>{{ isSaving ? 'Saving...' : 'Save AI Credentials' }}</span>
+          </button>
+
+          <button
+            v-else
             @click="saveSettings"
             :disabled="isSaving"
             class="flex items-center gap-2 px-5 py-2 rounded-full bg-[#9EE493] hover:bg-[#8ee082] text-slate-900 font-semibold text-xs shadow-sm transition disabled:opacity-50"
@@ -189,11 +315,24 @@ const saveManualAccount = () => {
       </div>
 
       <!-- Navigation Tabs Pill Bar -->
-      <div class="flex gap-2 p-1.5 bg-white rounded-full border border-slate-200/80 w-fit shadow-sm">
+      <div class="flex gap-2 p-1.5 bg-white rounded-full border border-slate-200/80 w-fit shadow-sm overflow-x-auto">
+        <button
+          @click="activeTab = 'ai'"
+          :class="[
+            'px-4 py-2 rounded-full text-xs font-semibold transition flex items-center gap-2 whitespace-nowrap',
+            activeTab === 'ai'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          ]"
+        >
+          <Cpu class="w-3.5 h-3.5 text-[#9EE493]" />
+          AI Models & Providers
+        </button>
+
         <button
           @click="activeTab = 'accounts'"
           :class="[
-            'px-4 py-2 rounded-full text-xs font-semibold transition flex items-center gap-2',
+            'px-4 py-2 rounded-full text-xs font-semibold transition flex items-center gap-2 whitespace-nowrap',
             activeTab === 'accounts'
               ? 'bg-slate-900 text-white shadow-sm'
               : 'text-slate-600 hover:text-slate-900'
@@ -206,7 +345,7 @@ const saveManualAccount = () => {
         <button
           @click="activeTab = 'brand'"
           :class="[
-            'px-4 py-2 rounded-full text-xs font-semibold transition flex items-center gap-2',
+            'px-4 py-2 rounded-full text-xs font-semibold transition flex items-center gap-2 whitespace-nowrap',
             activeTab === 'brand'
               ? 'bg-slate-900 text-white shadow-sm'
               : 'text-slate-600 hover:text-slate-900'
@@ -219,7 +358,7 @@ const saveManualAccount = () => {
         <button
           @click="activeTab = 'budget'"
           :class="[
-            'px-4 py-2 rounded-full text-xs font-semibold transition flex items-center gap-2',
+            'px-4 py-2 rounded-full text-xs font-semibold transition flex items-center gap-2 whitespace-nowrap',
             activeTab === 'budget'
               ? 'bg-slate-900 text-white shadow-sm'
               : 'text-slate-600 hover:text-slate-900'
@@ -230,7 +369,173 @@ const saveManualAccount = () => {
         </button>
       </div>
 
-      <!-- Tab 1: Connected Accounts -->
+      <!-- Tab: AI Models & Providers (BYO-AI) -->
+      <div v-if="activeTab === 'ai'" class="space-y-6">
+        <!-- Overview Header Card -->
+        <div class="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="font-display font-bold text-base text-slate-900 flex items-center gap-2">
+                <Sparkles class="w-4 h-4 text-emerald-600" />
+                Bring Your Own AI Model (BYO-AI)
+              </h2>
+              <p class="text-xs text-slate-500 mt-1">
+                Select your preferred LLM provider or connect a custom OpenAI-compatible server. All API keys are encrypted at rest with AES-256-GCM.
+              </p>
+            </div>
+
+            <!-- Active Provider Indicator Pill -->
+            <div class="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 rounded-full shrink-0">
+              <span class="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+              <span class="text-xs font-semibold text-emerald-800">
+                Active: {{ aiProviders[activeProvider]?.label }} ({{ aiProviders[activeProvider]?.model }})
+              </span>
+            </div>
+          </div>
+
+          <!-- Provider Selector Cards (5 Cards) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
+            <div
+              v-for="(prov, key) in aiProviders"
+              :key="key"
+              @click="activeProvider = key"
+              :class="[
+                'p-4 rounded-2xl border transition cursor-pointer relative flex flex-col justify-between space-y-3',
+                activeProvider === key
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-emerald-400/40'
+                  : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100 text-slate-800'
+              ]"
+            >
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded-md" :class="activeProvider === key ? 'bg-white/10 text-[#9EE493]' : 'bg-slate-200 text-slate-700'">
+                    {{ key.toUpperCase() }}
+                  </span>
+                  <Check v-if="activeProvider === key" class="w-4 h-4 text-[#9EE493]" />
+                </div>
+                <h3 class="font-display font-bold text-sm mt-2 leading-tight">{{ prov.label }}</h3>
+                <p class="text-[11px] mt-1 line-clamp-2" :class="activeProvider === key ? 'text-white/70' : 'text-slate-500'">
+                  {{ prov.description }}
+                </p>
+              </div>
+
+              <div class="pt-2 border-t text-[10px] font-mono truncate" :class="activeProvider === key ? 'border-white/10 text-[#9EE493]' : 'border-slate-200 text-slate-500'">
+                Model: {{ prov.model }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Provider Configuration Details -->
+        <div class="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 class="font-display font-bold text-base text-slate-900 flex items-center gap-2">
+                <Bot class="w-4 h-4 text-emerald-600" />
+                Configure {{ aiProviders[activeProvider]?.label }}
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Set credentials and preferred generation model for {{ aiProviders[activeProvider]?.label }}.
+              </p>
+            </div>
+
+            <!-- Test Connection Button -->
+            <button
+              @click="testAiConnection(activeProvider)"
+              :disabled="isTesting"
+              class="flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs shadow-xs transition disabled:opacity-50"
+            >
+              <Play class="w-3 h-3 text-emerald-600" />
+              <span>{{ isTesting ? 'Testing Latency...' : 'Test Connection' }}</span>
+            </button>
+          </div>
+
+          <!-- Test Output Alert Banner -->
+          <div
+            v-if="testResult"
+            :class="[
+              'p-4 rounded-2xl border text-xs space-y-1',
+              testResult.success ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'
+            ]"
+          >
+            <div class="flex items-center justify-between font-bold">
+              <span class="flex items-center gap-1.5">
+                <CheckCircle2 v-if="testResult.success" class="w-4 h-4 text-emerald-600" />
+                <AlertTriangle v-else class="w-4 h-4 text-rose-600" />
+                <span>{{ testResult.success ? 'Connection Verified Successfully' : 'Connection Failed' }}</span>
+              </span>
+              <span class="font-mono text-[11px]">{{ testResult.latency_ms }}ms latency</span>
+            </div>
+            <p v-if="testResult.sample_output" class="text-[11px] font-sans opacity-90 pt-1 italic">
+              "{{ testResult.sample_output }}"
+            </p>
+            <p v-if="testResult.error" class="text-[11px] font-mono text-rose-700 pt-1">
+              {{ testResult.error }}
+            </p>
+          </div>
+
+          <!-- Inputs -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+            <!-- API Key -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="font-semibold text-slate-700">API Key / Access Token</label>
+                <button
+                  type="button"
+                  @click="showKeys[activeProvider] = !showKeys[activeProvider]"
+                  class="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1"
+                >
+                  <component :is="showKeys[activeProvider] ? EyeOff : Eye" class="w-3 h-3" />
+                  <span>{{ showKeys[activeProvider] ? 'Hide' : 'Show' }}</span>
+                </button>
+              </div>
+              <input
+                v-model="aiProviders[activeProvider].api_key"
+                :type="showKeys[activeProvider] ? 'text' : 'password'"
+                placeholder="sk-... or API Token"
+                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-slate-400 font-mono"
+              />
+            </div>
+
+            <!-- Model Selection -->
+            <div class="space-y-1.5">
+              <label class="font-semibold text-slate-700">Target Model</label>
+              <div class="flex gap-2">
+                <select
+                  v-model="aiProviders[activeProvider].model"
+                  class="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-slate-400 flex-1 font-mono"
+                >
+                  <option v-for="m in aiProviders[activeProvider].models" :key="m" :value="m">
+                    {{ m }}
+                  </option>
+                </select>
+                <input
+                  v-model="aiProviders[activeProvider].model"
+                  type="text"
+                  placeholder="Custom model id"
+                  class="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-slate-400 w-36 font-mono"
+                />
+              </div>
+            </div>
+
+            <!-- Base URL (For Z AI and Custom) -->
+            <div v-if="activeProvider === 'z_ai' || activeProvider === 'custom'" class="md:col-span-2 space-y-1.5">
+              <label class="font-semibold text-slate-700">Endpoint Base URL</label>
+              <input
+                v-model="aiProviders[activeProvider].base_url"
+                type="text"
+                placeholder="https://api.z-ai.io/v1 or http://localhost:11434/v1"
+                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-slate-400 font-mono"
+              />
+              <p class="text-[11px] text-slate-400">
+                Compatible with any OpenAI-compliant API format (Groq, DeepSeek, Together AI, Mistral, Ollama, vLLM).
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Connected Accounts -->
       <div v-if="activeTab === 'accounts'" class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div
@@ -328,7 +633,7 @@ const saveManualAccount = () => {
         </div>
       </div>
 
-      <!-- Tab 2: Brand Voice Vault -->
+      <!-- Tab: Brand Voice Vault -->
       <div v-if="activeTab === 'brand'" class="space-y-6">
         <div class="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-5">
           <div>
@@ -369,7 +674,7 @@ const saveManualAccount = () => {
         </div>
       </div>
 
-      <!-- Tab 3: Budget & Metered Guardrails -->
+      <!-- Tab: Budget & Metered Guardrails -->
       <div v-if="activeTab === 'budget'" class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">

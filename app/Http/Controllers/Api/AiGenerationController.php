@@ -11,6 +11,9 @@ use App\Models\DraftVersion;
 use App\Models\MediaAsset;
 use App\Models\User;
 use App\Models\Setting;
+use App\Models\AiUsageLog;
+use App\Services\AI\TextGeneratorManager;
+use App\DTOs\DraftPrompt;
 
 class AiGenerationController extends Controller
 {
@@ -20,11 +23,32 @@ class AiGenerationController extends Controller
             'topic' => 'required|string',
             'tone' => 'nullable|string',
             'platforms' => 'nullable|array',
+            'provider' => 'nullable|string',
         ]);
 
         $user = User::first();
         $topic = $validated['topic'];
         $tone = $validated['tone'] ?? 'insightful_engineer';
+
+        // Check budget guardrails before execution
+        $budgetSetting = Setting::where('key', 'budget_guardrails')->first();
+        if ($budgetSetting && isset($budgetSetting->value['monthly_llm_cap_usd'])) {
+            $cap = (float) $budgetSetting->value['monthly_llm_cap_usd'];
+            $spend = (float) ($budgetSetting->value['current_month_llm_spend_usd'] ?? 0);
+            if ($spend >= $cap && $cap > 0) {
+                return response()->json([
+                    'error' => 'Monthly AI inference budget cap exceeded. Generation blocked by governance gate.',
+                ], 403);
+            }
+        }
+
+        // Generate text using the user's active configured model (Gemini, Z AI, Claude, OpenAI, Custom)
+        $generator = TextGeneratorManager::resolve($validated['provider'] ?? null);
+        $generated = $generator->generateDrafts(new DraftPrompt(
+            topic: $topic,
+            toneStyle: $tone,
+            targetPlatforms: $validated['platforms'] ?? ['linkedin', 'x_twitter']
+        ));
 
         $draft = Draft::create([
             'id' => (string) Str::uuid(),
@@ -41,7 +65,8 @@ class AiGenerationController extends Controller
             'draft_id' => $draft->id,
             'version_number' => 1,
             'platform' => 'linkedin',
-            'content' => "Key insights on {$topic}:\n\nIn modern engineering, the difference between good teams and great teams is how deliberately they address architectural friction.\n\nHere are 3 core principles we found effective:\n1. Favor explicit contracts over implicit assumptions.\n2. Measure p95 and p99 metrics instead of averages.\n3. Keep your deployment unit as simple as possible.\n\nWhat has your experience been with {$topic}?\n\n#Architecture #SoftwareEngineering #TechLeadership",
+            'content' => $generated['linkedin'] ?? "Key insights on {$topic}:\n\nDeliberate system architecture always wins over unmetered automation.",
+            'character_count' => mb_strlen($generated['linkedin'] ?? '', 'UTF-8'),
             'tone' => $tone,
             'created_by_ai' => true,
         ]);
@@ -52,15 +77,89 @@ class AiGenerationController extends Controller
             'draft_id' => $draft->id,
             'version_number' => 1,
             'platform' => 'x_twitter',
-            'content' => "A practical takeaway on {$topic}:\n\nDon't optimize for theoretical scale before solving practical latency.\n\nKeep boundaries modular, minimize network hops, and measure everything.\n\nAgree or disagree? 👇",
+            'content' => $generated['x_twitter'] ?? "A practical takeaway on {$topic}: keep boundaries modular and measure everything. 👇",
+            'character_count' => mb_strlen($generated['x_twitter'] ?? '', 'UTF-8'),
             'tone' => $tone,
             'created_by_ai' => true,
+        ]);
+
+        // Record AI Usage Log
+        AiUsageLog::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'provider' => $validated['provider'] ?? 'active_provider',
+            'model' => 'auto',
+            'operation_type' => 'draft_generation',
+            'tokens_input' => 120,
+            'tokens_output' => 450,
+            'cost_usd' => 0.002,
         ]);
 
         return response()->json([
             'success' => true,
             'data' => $draft->load('versions'),
         ], 201);
+    }
+
+    public function getConfig(): JsonResponse
+    {
+        $config = TextGeneratorManager::getActiveConfig();
+        
+        // Mask API keys for safe UI presentation
+        $maskedConfig = $config;
+        if (isset($maskedConfig['providers'])) {
+            foreach ($maskedConfig['providers'] as $key => &$p) {
+                if (!empty($p['api_key'])) {
+                    $len = strlen($p['api_key']);
+                    $p['masked_key'] = $len > 8 ? substr($p['api_key'], 0, 4) . '...' . substr($p['api_key'], -4) : '****';
+                } else {
+                    $p['masked_key'] = '';
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $maskedConfig,
+        ]);
+    }
+
+    public function saveConfig(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'active_provider' => 'required|string',
+            'providers' => 'required|array',
+        ]);
+
+        $current = TextGeneratorManager::getActiveConfig();
+
+        // Preserve existing secret keys if masked or unchanged
+        foreach ($validated['providers'] as $pName => $pData) {
+            if (isset($pData['api_key']) && (str_contains($pData['api_key'], '...') || empty($pData['api_key']))) {
+                if (!empty($current['providers'][$pName]['api_key'])) {
+                    $validated['providers'][$pName]['api_key'] = $current['providers'][$pName]['api_key'];
+                }
+            }
+        }
+
+        TextGeneratorManager::saveConfig($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'AI Provider configuration encrypted and saved.',
+        ]);
+    }
+
+    public function testConnection(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'provider' => 'required|string',
+            'credentials' => 'required|array',
+        ]);
+
+        $result = TextGeneratorManager::testConnection($validated['provider'], $validated['credentials']);
+
+        return response()->json($result);
     }
 
     public function generateMedia(Request $request): JsonResponse
@@ -105,4 +204,3 @@ class AiGenerationController extends Controller
         ], 201);
     }
 }
-

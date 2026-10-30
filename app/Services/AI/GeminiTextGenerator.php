@@ -12,10 +12,12 @@ class GeminiTextGenerator implements TextGeneratorInterface
 {
     protected Client $client;
     protected string $apiKey;
+    protected string $model;
 
-    public function __construct(?string $apiKey = null, ?Client $client = null)
+    public function __construct(?string $apiKey = null, ?string $model = null, ?Client $client = null)
     {
         $this->apiKey = $apiKey ?? (string) env('GEMINI_API_KEY', '');
+        $this->model = $model ?? (string) env('GEMINI_MODEL', 'gemini-1.5-flash');
         $this->client = $client ?? new Client(['timeout' => 30]);
     }
 
@@ -37,7 +39,7 @@ class GeminiTextGenerator implements TextGeneratorInterface
 
         try {
             $systemInstruction = "You are an elite tech ghostwriter. Write two platform-specific posts for topic: {$prompt->topic}. Banned words: " . implode(', ', $prompt->bannedWords);
-            $response = $this->client->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$this->apiKey}", [
+            $response = $this->client->post("https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}", [
                 'json' => [
                     'contents' => [
                         ['parts' => [['text' => "Generate a long-form LinkedIn post (1000-2500 chars) and a concise X tweet (<280 chars) for: {$prompt->topic}"]]]

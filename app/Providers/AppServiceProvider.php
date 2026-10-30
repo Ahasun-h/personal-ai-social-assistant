@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use App\Contracts\AI\TextGeneratorInterface;
+use App\Services\AI\TextGeneratorManager;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -11,7 +13,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(TextGeneratorInterface::class, function () {
+            return TextGeneratorManager::resolve();
+        });
     }
 
     /**

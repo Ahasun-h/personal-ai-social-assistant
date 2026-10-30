@@ -10,6 +10,7 @@ use App\Http\Controllers\MediaController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SocialAccountController;
 use App\Http\Controllers\TrendController;
+use App\Http\Controllers\Api\AiGenerationController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
@@ -64,5 +65,11 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         // Settings Vault & Budget
         Route::get('/settings', [SettingController::class, 'index']);
         Route::post('/settings', [SettingController::class, 'update']);
+
+        // AI Provider & Custom Model Vault (Gemini, Z AI, Claude, OpenAI, Custom)
+        Route::get('/ai/config', [AiGenerationController::class, 'getConfig']);
+        Route::post('/ai/config', [AiGenerationController::class, 'saveConfig']);
+        Route::post('/ai/test', [AiGenerationController::class, 'testConnection']);
+        Route::post('/ai/generate', [AiGenerationController::class, 'generateDraft']);
     });
 });

@@ -17,3 +17,8 @@ Route::get('/trends', [TrendController::class, 'index'])->name('trends');
 Route::get('/media', [MediaController::class, 'index'])->name('media');
 Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
 Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
+
+// Web AI Provider Endpoints for Settings UI
+Route::get('/api/v1/ai/config', [App\Http\Controllers\Api\AiGenerationController::class, 'getConfig']);
+Route::post('/api/v1/ai/config', [App\Http\Controllers\Api\AiGenerationController::class, 'saveConfig']);
+Route::post('/api/v1/ai/test', [App\Http\Controllers\Api\AiGenerationController::class, 'testConnection']);

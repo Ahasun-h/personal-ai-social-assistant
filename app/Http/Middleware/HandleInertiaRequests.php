@@ -74,6 +74,10 @@ class HandleInertiaRequests extends Middleware
             'connectedAccounts' => $accounts,
             'budget' => $budget,
             'inboxCount' => $inboxCount,
+            'activeAi' => [
+                'provider' => \App\Services\AI\TextGeneratorManager::getActiveConfig()['active_provider'] ?? 'gemini',
+                'model' => \App\Services\AI\TextGeneratorManager::getActiveConfig()['providers'][\App\Services\AI\TextGeneratorManager::getActiveConfig()['active_provider'] ?? 'gemini']['model'] ?? 'gemini-1.5-pro',
+            ],
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'success' => fn () => $request->session()->get('success'),

@@ -7,6 +7,7 @@ use Inertia\Response;
 use App\Models\SocialAccount;
 use App\Models\Setting;
 use App\Models\InterestCategory;
+use App\Services\AI\TextGeneratorManager;
 
 class SettingsController extends Controller
 {
@@ -21,6 +22,7 @@ class SettingsController extends Controller
             'categories' => $categories,
             'brandVoice' => $settings->get('brand_voice')?->value ?? [],
             'budget' => $settings->get('budget_guardrails')?->value ?? [],
+            'aiConfig' => TextGeneratorManager::getActiveConfig(),
         ]);
     }
 }

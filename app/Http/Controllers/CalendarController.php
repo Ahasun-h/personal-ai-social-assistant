@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\Schedule;
 use App\Models\SocialAccount;
+use App\Services\AI\TextGeneratorManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -34,6 +35,8 @@ class CalendarController extends Controller
         return Inertia::render('Calendar/Index', [
             'schedules' => $schedules,
             'accounts' => $accounts,
+            'hasAiKey' => TextGeneratorManager::hasConfiguredApiKey(),
+            'aiConfig' => TextGeneratorManager::getAiKeyStatus(),
         ]);
     }
 

@@ -65,7 +65,7 @@ const aiProviders = ref<Record<string, any>>({
   gemini: {
     label: 'Google Gemini',
     badge: 'Official Google GenAI',
-    api_key: props.aiConfig?.providers?.gemini?.api_key || '""',
+    api_key: props.aiConfig?.providers?.gemini?.api_key || '',
     model: props.aiConfig?.providers?.gemini?.model || 'gemini-3.5-flash',
     models: ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-pro'],
     description: 'High-speed multi-modal reasoning with expansive context windows.',
@@ -158,7 +158,7 @@ const testAiConnection = async (providerName: string) => {
 const saveAiConfig = async () => {
   isSaving.value = true;
   try {
-    await fetch('/api/v1/ai/config', {
+    const res = await fetch('/api/v1/ai/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -166,10 +166,13 @@ const saveAiConfig = async () => {
         providers: aiProviders.value,
       }),
     });
-    saveSuccess.value = true;
-    setTimeout(() => {
-      saveSuccess.value = false;
-    }, 3000);
+    if (res.ok) {
+      saveSuccess.value = true;
+      router.reload();
+      setTimeout(() => {
+        saveSuccess.value = false;
+      }, 3000);
+    }
   } finally {
     isSaving.value = false;
   }

@@ -30,6 +30,14 @@ class AiGenerationController extends Controller
         $topic = $validated['topic'];
         $tone = $validated['tone'] ?? 'insightful_engineer';
 
+        $requestedProvider = $validated['provider'] ?? null;
+        if (!TextGeneratorManager::hasConfiguredApiKey($requestedProvider)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'No AI API key configured. Please configure your AI credentials in Settings Vault.',
+            ], 422);
+        }
+
         // Check budget guardrails before execution
         $budgetSetting = Setting::where('key', 'budget_guardrails')->first();
         if ($budgetSetting && isset($budgetSetting->value['monthly_llm_cap_usd'])) {

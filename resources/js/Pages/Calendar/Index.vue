@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import {
   Calendar as CalendarIcon,
@@ -14,6 +14,7 @@ import {
   AlertCircle,
   X as CloseIcon,
   Sparkles,
+  Lock,
 } from 'lucide-vue-next';
 
 interface ScheduleItem {
@@ -46,6 +47,11 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   schedules: () => [],
   accounts: () => [],
+});
+
+const page = usePage();
+const hasAiKey = computed(() => {
+  return !!(page.props as any).hasAiKey;
 });
 
 // Calendar State
@@ -371,6 +377,24 @@ const submitSchedule = async () => {
         </div>
       </div>
 
+      <!-- Missing AI API Key Warning Banner -->
+      <div
+        v-if="!hasAiKey"
+        class="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-sm"
+      >
+        <div class="flex items-center gap-2.5">
+          <AlertCircle class="w-4 h-4 text-amber-600 shrink-0" />
+          <span>No AI API Key configured in Settings. Smart AI slot optimization and AI reach telemetry are offline.</span>
+        </div>
+        <Link
+          href="/settings"
+          class="shrink-0 px-3.5 py-1.5 rounded-full bg-amber-200 hover:bg-amber-300 text-amber-950 font-semibold text-xs transition inline-flex items-center gap-1.5 self-start sm:self-auto shadow-xs"
+        >
+          <span>Configure API Key in Settings</span>
+          <span>→</span>
+        </Link>
+      </div>
+
       <!-- Main Layout: Calendar Grid + Day Details Drawer -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <!-- Calendar Grid (8 Cols on Desktop) -->
@@ -550,7 +574,10 @@ const submitSchedule = async () => {
           </div>
 
           <!-- Smart AI Slot Recommendation Box -->
-          <div class="border border-emerald-200/70 rounded-2xl p-4 bg-emerald-50/50 space-y-2">
+          <div
+            v-if="hasAiKey"
+            class="border border-emerald-200/70 rounded-2xl p-4 bg-emerald-50/50 space-y-2"
+          >
             <div class="flex items-center gap-2 text-xs font-bold text-emerald-800">
               <Sparkles class="w-4 h-4 text-emerald-600" />
               <span>Smart AI Slot Recommendation</span>
@@ -558,6 +585,21 @@ const submitSchedule = async () => {
             <p class="text-[11px] text-slate-600 leading-relaxed">
               Based on historical LinkedIn engagement, optimal post reach for tech audiences is between <strong class="text-slate-900">08:30 AM – 10:15 AM EST</strong>.
             </p>
+          </div>
+          <div
+            v-else
+            class="border border-amber-200/80 rounded-2xl p-4 bg-amber-50/50 space-y-2 text-xs text-amber-900"
+          >
+            <div class="flex items-center gap-2 font-bold text-amber-800">
+              <Lock class="w-4 h-4 text-amber-600" />
+              <span>Smart AI Slot Recommendation Offline</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-relaxed">
+              No AI API Key configured in Settings. Dynamic audience reach calculation and schedule recommendations are disabled.
+            </p>
+            <Link href="/settings" class="text-[11px] font-semibold text-amber-900 underline block pt-0.5 hover:text-amber-950">
+              Configure AI Key in Settings →
+            </Link>
           </div>
         </div>
       </div>

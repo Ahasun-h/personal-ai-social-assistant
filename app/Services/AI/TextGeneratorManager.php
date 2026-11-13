@@ -73,6 +73,11 @@ class TextGeneratorManager
                     }
                 }
             }
+            foreach ($merged['providers'] as $k => &$p) {
+                $hasKey = !empty($p['api_key']);
+                $hasUrl = !empty($p['base_url']);
+                $p['is_configured'] = ($k === 'custom') ? ($hasKey || $hasUrl) : $hasKey;
+            }
             return $merged;
         }
 
@@ -121,6 +126,81 @@ class TextGeneratorManager
                     'is_configured' => !empty(env('CUSTOM_AI_BASE_URL')),
                 ],
             ],
+        ];
+    }
+
+    /**
+     * Checks if a valid AI API key is configured.
+     */
+    public static function hasConfiguredApiKey(?string $provider = null): bool
+    {
+        $config = self::getActiveConfig();
+
+        if ($provider !== null) {
+            $p = $config['providers'][$provider] ?? null;
+            if (!$p) {
+                return false;
+            }
+            if ($provider === 'custom') {
+                return !empty($p['api_key']) || !empty($p['base_url']);
+            }
+            return !empty($p['api_key']);
+        }
+
+        $activeProvider = $config['active_provider'] ?? 'gemini';
+        $active = $config['providers'][$activeProvider] ?? null;
+        if ($active && !empty($active['api_key'])) {
+            return true;
+        }
+
+        foreach ($config['providers'] ?? [] as $k => $p) {
+            if ($k === 'custom') {
+                if (!empty($p['api_key']) || !empty($p['base_url'])) {
+                    return true;
+                }
+            } else {
+                if (!empty($p['api_key'])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns full key status and configured providers for frontend reactivity.
+     */
+    public static function getAiKeyStatus(): array
+    {
+        $config = self::getActiveConfig();
+        $activeProvider = $config['active_provider'] ?? 'gemini';
+        $active = $config['providers'][$activeProvider] ?? [];
+        $hasActiveKey = !empty($active['api_key']) || ($activeProvider === 'custom' && (!empty($active['api_key']) || !empty($active['base_url'])));
+
+        $configuredProviders = [];
+        foreach ($config['providers'] ?? [] as $k => $p) {
+            if ($k === 'custom') {
+                if (!empty($p['api_key']) || !empty($p['base_url'])) {
+                    $configuredProviders[] = $k;
+                }
+            } else {
+                if (!empty($p['api_key'])) {
+                    $configuredProviders[] = $k;
+                }
+            }
+        }
+
+        $hasAnyKey = !empty($configuredProviders);
+
+        return [
+            'has_ai_key' => $hasActiveKey || $hasAnyKey,
+            'has_active_key' => $hasActiveKey,
+            'has_any_key' => $hasAnyKey,
+            'active_provider' => $activeProvider,
+            'active_provider_label' => $active['label'] ?? ucfirst($activeProvider),
+            'active_model' => $active['model'] ?? 'auto',
+            'configured_providers' => $configuredProviders,
         ];
     }
 

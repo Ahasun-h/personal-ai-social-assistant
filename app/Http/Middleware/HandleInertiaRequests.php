@@ -39,10 +39,8 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $currentUser = $request->user() ?: User::first();
-        if ($currentUser && !auth()->check()) {
-            auth()->login($currentUser);
-        }
+        $currentUser = $request->user();
+
         $accounts = SocialAccount::where('is_active', true)->get()->map(function ($acc) {
             $daysLeft = $acc->token_expires_at ? max(0, (int) now()->diffInDays($acc->token_expires_at, false)) : null;
             return [
@@ -64,6 +62,26 @@ class HandleInertiaRequests extends Middleware
 
         $inboxCount = Draft::where('status', Draft::STATUS_IN_REVIEW)->count();
 
+        $notifications = [];
+        $unreadNotificationsCount = 0;
+        if ($currentUser) {
+            $notifications = $currentUser->notifications()
+                ->latest()
+                ->take(15)
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'type' => $item->type,
+                        'title' => $item->title,
+                        'message' => $item->message,
+                        'read_at' => $item->read_at ? $item->read_at->toIso8601String() : null,
+                        'created_at' => $item->created_at ? $item->created_at->toIso8601String() : null,
+                    ];
+                });
+            $unreadNotificationsCount = $currentUser->notifications()->whereNull('read_at')->count();
+        }
+
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $currentUser ? [
@@ -74,13 +92,18 @@ class HandleInertiaRequests extends Middleware
                     'role' => $currentUser->role,
                 ] : null,
             ],
+            'notifications' => $notifications,
+            'unreadNotificationsCount' => $unreadNotificationsCount,
             'connectedAccounts' => $accounts,
             'budget' => $budget,
             'inboxCount' => $inboxCount,
             'activeAi' => [
                 'provider' => \App\Services\AI\TextGeneratorManager::getActiveConfig()['active_provider'] ?? 'gemini',
                 'model' => \App\Services\AI\TextGeneratorManager::getActiveConfig()['providers'][\App\Services\AI\TextGeneratorManager::getActiveConfig()['active_provider'] ?? 'gemini']['model'] ?? 'gemini-1.5-pro',
+                'has_api_key' => \App\Services\AI\TextGeneratorManager::hasConfiguredApiKey(),
             ],
+            'aiConfig' => \App\Services\AI\TextGeneratorManager::getAiKeyStatus(),
+            'hasAiKey' => \App\Services\AI\TextGeneratorManager::hasConfiguredApiKey(),
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'success' => fn () => $request->session()->get('success'),

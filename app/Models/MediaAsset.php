@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasUuid;
+use App\Models\MediaGenerationRequest;
+use App\Models\PostMedia;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -71,5 +73,28 @@ class MediaAsset extends Model
     public function isDocument(): bool
     {
         return $this->mime_type === 'application/pdf';
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (MediaAsset $asset) {
+            // Delete post_media pivot rows referencing this asset
+            PostMedia::where('media_asset_id', $asset->id)->delete();
+
+            // Dissociate from any media generation requests
+            MediaGenerationRequest::where('result_asset_id', $asset->id)->update(['result_asset_id' => null]);
+
+            // Clean up physical file on disk if stored locally
+            try {
+                if ($asset->path && str_starts_with($asset->path, '/storage/')) {
+                    $rel = preg_replace('#^/storage/#', '', $asset->path);
+                    Storage::disk('public')->delete($rel);
+                } elseif ($asset->path && !str_starts_with($asset->path, 'http') && Storage::disk($asset->disk ?? 'public')->exists($asset->path)) {
+                    Storage::disk($asset->disk ?? 'public')->delete($asset->path);
+                }
+            } catch (\Throwable $e) {
+                // Ignore physical file cleanup failures
+            }
+        });
     }
 }

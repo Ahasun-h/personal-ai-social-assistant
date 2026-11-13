@@ -240,4 +240,43 @@ class ApiEndpointsTest extends TestCase
             'is_ai_generated' => true,
         ]);
     }
+
+    public function test_trend_preferences_retrieval(): void
+    {
+        $response = $this->getJson('/api/v1/trends/preferences');
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'preferences' => [
+                        'liked_topics',
+                        'keywords',
+                        'min_score',
+                        'preferred_tone',
+                    ],
+                    'categories',
+                ],
+            ]);
+    }
+
+    public function test_trend_preferences_save_and_re_ranking(): void
+    {
+        $payload = [
+            'liked_topics' => ['Distributed Systems & Cloud', 'WebGPU & Graphics'],
+            'keywords' => ['ebpf', 'clickhouse'],
+            'min_score' => 85,
+            'preferred_tone' => 'deep_dive_engineer',
+        ];
+
+        $response = $this->postJson('/api/v1/trends/preferences', $payload);
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.preferences.preferred_tone', 'deep_dive_engineer')
+            ->assertJsonPath('data.preferences.min_score', 85);
+
+        $this->assertDatabaseHas('settings', [
+            'key' => 'trend_preferences',
+        ]);
+    }
 }

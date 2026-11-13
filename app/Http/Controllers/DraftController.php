@@ -12,6 +12,7 @@ use App\Models\DraftVersion;
 use App\Models\Schedule;
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Services\AI\TextGeneratorManager;
 use App\Services\CostControlService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -130,7 +131,7 @@ class DraftController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $draft->load('versions'),
+            'data' => $draft->load(['versions', 'trendItem', 'postMedia.mediaAsset']),
         ], 201);
     }
 
@@ -189,6 +190,14 @@ class DraftController extends Controller
 
     public function generateAi(Request $request, TextGeneratorInterface $ai, CostControlService $costService): JsonResponse
     {
+        if (!TextGeneratorManager::hasConfiguredApiKey()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No AI API key found. Please save an AI API key in Settings Vault to use AI drafting.',
+                'errors' => ['api_key' => ['No AI API key configured in Settings Vault.']],
+            ], 422);
+        }
+
         $topic = $request->input('topic_or_idea') ?? $request->input('topic');
         if (empty($topic)) {
             return response()->json([
@@ -221,6 +230,7 @@ class DraftController extends Controller
 
         $draft = Draft::create([
             'user_id' => $user->id,
+            'trend_item_id' => $request->input('trend_item_id'),
             'title' => substr($topic, 0, 80),
             'status' => Draft::STATUS_IN_REVIEW,
             'target_platforms' => $platforms,
@@ -258,13 +268,13 @@ class DraftController extends Controller
         ]);
 
         AuditLog::record('ai_generate_draft', $draft, $user->id, null, [
-            'topic' => $validated['topic_or_idea'],
+            'topic' => $topic,
             'cost_usd' => $estimatedCost,
         ]);
 
         return response()->json([
             'success' => true,
-            'data' => $draft->load('versions'),
+            'data' => $draft->load(['versions', 'trendItem', 'postMedia.mediaAsset']),
         ], 201);
     }
 }

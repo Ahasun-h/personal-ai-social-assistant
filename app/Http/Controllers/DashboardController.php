@@ -10,6 +10,7 @@ use App\Models\Schedule;
 use App\Models\MetricsSnapshot;
 use App\Models\Setting;
 use App\Models\InterestCategory;
+use App\Services\AI\TextGeneratorManager;
 
 class DashboardController extends Controller
 {
@@ -79,6 +80,8 @@ class DashboardController extends Controller
             'upcomingSchedules' => $upcomingSchedules,
             'recentDrafts' => $recentDrafts,
             'budget' => $budget,
+            'hasAiKey' => TextGeneratorManager::hasConfiguredApiKey(),
+            'aiConfig' => TextGeneratorManager::getAiKeyStatus(),
         ]);
     }
 }

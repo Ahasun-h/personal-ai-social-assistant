@@ -35,6 +35,8 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::match(['post', 'patch'], '/trends/items/{id}/bookmark', [TrendController::class, 'bookmark']);
         Route::match(['post', 'patch'], '/trends/items/{id}/dismiss', [TrendController::class, 'dismiss']);
         Route::post('/trends/sync', [TrendController::class, 'triggerSync']);
+        Route::get('/trends/preferences', [TrendController::class, 'getPreferences']);
+        Route::post('/trends/preferences', [TrendController::class, 'savePreferences']);
 
         // Drafts & AI Content
         Route::get('/drafts', [DraftController::class, 'index']);
@@ -62,9 +64,16 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
         // Analytics & Metrics
         Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
+        Route::post('/analytics/ai-insights', [AnalyticsController::class, 'generateAiInsights']);
 
         // Audit Logs
         Route::get('/audits', [AuditController::class, 'index']);
+
+        // Notifications
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
 
         // Settings Vault & Budget
         Route::get('/settings', [SettingController::class, 'index']);

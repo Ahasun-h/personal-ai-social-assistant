@@ -113,10 +113,29 @@ const isVideoAsset = computed(() => {
 // 2. TOOLBAR & COLLAPSIBLE FLYOUT DRAWER
 // ==========================================
 type ActiveTool = 'ai_video' | 'ai_image' | 'templates' | 'uploads' | 'text' | 'elements' | 'filters' | 'aspect' | 'layers';
-const activeTool = ref<ActiveTool | null>('ai_video');
+const studioMode = ref<'photo' | 'video'>(isVideoAsset.value ? 'video' : 'photo');
+const activeTool = ref<ActiveTool | null>(isVideoAsset.value ? 'ai_video' : 'filters');
 const isFlyoutOpen = ref(true);
 
+const switchToPhotoMode = () => {
+  studioMode.value = 'photo';
+  activeTool.value = 'filters';
+  isFlyoutOpen.value = true;
+};
+
+const switchToVideoMode = () => {
+  studioMode.value = 'video';
+  activeTool.value = 'ai_video';
+  isFlyoutOpen.value = true;
+};
+
 const toggleTool = (tool: ActiveTool) => {
+  if (tool === 'ai_video') {
+    studioMode.value = 'video';
+  } else if (['filters', 'aspect', 'text', 'templates', 'elements'].includes(tool)) {
+    studioMode.value = 'photo';
+  }
+
   if (activeTool.value === tool && isFlyoutOpen.value) {
     isFlyoutOpen.value = false;
   } else {
@@ -161,23 +180,41 @@ const showToast = (text: string, type: 'success' | 'error' = 'success') => {
 };
 
 // ==========================================
-// 3. AI VIDEO GENERATOR (Image to Video & Text to Video)
+// 3. AI GENERATION MODELS (User Setup Models + Studio Diffusion)
 // ==========================================
+export interface AIModelItem {
+  id: string;
+  provider?: string;
+  model?: string;
+  name: string;
+  tag: string;
+  cost: string;
+  badge: string;
+  type: 'image' | 'video';
+  category: 'user_setup' | 'diffusion_image' | 'video_diffusion';
+  isUserSetup?: boolean;
+}
+
 const videoTab = ref<'image_to_video' | 'text_to_video'>('image_to_video');
 const motionPrompt = ref('');
 const textVideoPrompt = ref('');
-const selectedModel = ref('seedance-2.5');
-const isModelDropdownOpen = ref(false);
+const selectedVideoModel = ref('seedance-2.5');
+const selectedImageModel = ref('flux-schnell');
+const isVideoModelDropdownOpen = ref(false);
+const isImageModelDropdownOpen = ref(false);
 const isGeneratingVideo = ref(false);
 const videoGenerationProgress = ref(0);
 
-const videoModels = [
+const generationModels = ref<AIModelItem[]>([
   {
     id: 'seedance-2.5',
     name: 'Seedance 2.5',
     tag: 'Multimodal & Audio, up to 30s',
     cost: '20 credits ($0.08)',
     badge: 'Popular',
+    type: 'video',
+    category: 'video_diffusion',
+    isUserSetup: false,
   },
   {
     id: 'wan-3.0',
@@ -185,6 +222,9 @@ const videoModels = [
     tag: 'All-In-One Reference, up to 30s',
     cost: '10 credits ($0.04)',
     badge: 'Fast',
+    type: 'video',
+    category: 'video_diffusion',
+    isUserSetup: false,
   },
   {
     id: 'wan-3.0-prime',
@@ -192,6 +232,9 @@ const videoModels = [
     tag: 'Same as WAN 3.0, up to 7x faster',
     cost: '15 credits ($0.06)',
     badge: 'Turbo',
+    type: 'video',
+    category: 'video_diffusion',
+    isUserSetup: false,
   },
   {
     id: 'runway-gen3',
@@ -199,6 +242,9 @@ const videoModels = [
     tag: 'Cinematic Photorealism & HDR',
     cost: '25 credits ($0.10)',
     badge: 'Cinema',
+    type: 'video',
+    category: 'video_diffusion',
+    isUserSetup: false,
   },
   {
     id: 'kling-1.5',
@@ -206,12 +252,206 @@ const videoModels = [
     tag: 'Complex Physics & Consistent Motion',
     cost: '18 credits ($0.07)',
     badge: 'Coherent',
+    type: 'video',
+    category: 'video_diffusion',
+    isUserSetup: false,
   },
-];
+  {
+    id: 'gemini',
+    provider: 'gemini',
+    model: 'gemini-3.5-flash',
+    name: 'Google Gemini (gemini-3.5-flash)',
+    tag: 'Active Provider in Settings Vault · Fast High-Res Synthesis',
+    cost: '$0.003 / img',
+    badge: '★ Active Vault',
+    type: 'image',
+    category: 'user_setup',
+    isUserSetup: true,
+  },
+  {
+    id: 'flux-schnell',
+    provider: 'flux',
+    model: 'flux-schnell',
+    name: 'Flux 1.1 Schnell',
+    tag: 'Serverless visual diffusion engine',
+    cost: '$0.040 / img',
+    badge: 'Fast Image',
+    type: 'image',
+    category: 'diffusion_image',
+    isUserSetup: false,
+  },
+]);
 
-const activeModelObj = computed(() => {
-  return videoModels.find((m) => m.id === selectedModel.value) || videoModels[0];
+const userSetupModels = computed(() => generationModels.value.filter(m => m.category === 'user_setup'));
+const diffusionImageModels = computed(() => generationModels.value.filter(m => m.category === 'diffusion_image'));
+const videoDiffusionModels = computed(() => generationModels.value.filter(m => m.category === 'video_diffusion'));
+const videoModels = computed(() => videoDiffusionModels.value);
+
+const activeVideoModelObj = computed(() => {
+  return (
+    videoDiffusionModels.value.find((m) => m.id === selectedVideoModel.value) ||
+    userSetupModels.value.find((m) => m.id === selectedVideoModel.value) ||
+    videoDiffusionModels.value[0] ||
+    generationModels.value[0]
+  );
 });
+
+const activeImageModelObj = computed(() => {
+  return (
+    userSetupModels.value.find((m) => m.id === selectedImageModel.value) ||
+    diffusionImageModels.value.find((m) => m.id === selectedImageModel.value) ||
+    userSetupModels.value[0] ||
+    diffusionImageModels.value[0] ||
+    generationModels.value[0]
+  );
+});
+
+// Studio general alias
+const activeModelObj = computed(() => {
+  return activeTool.value === 'ai_video' ? activeVideoModelObj.value : activeImageModelObj.value;
+});
+
+const selectedModel = computed({
+  get: () => activeTool.value === 'ai_video' ? selectedVideoModel.value : selectedImageModel.value,
+  set: (val: string) => {
+    if (activeTool.value === 'ai_video') {
+      selectedVideoModel.value = val;
+    } else {
+      selectedImageModel.value = val;
+    }
+  }
+});
+
+const loadAiConfig = async () => {
+  try {
+    const res = await fetch('/api/v1/ai/config', {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        syncModelsWithVault(json.data);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load settings vault AI config in studio:', e);
+  }
+};
+
+const syncModelsWithVault = (vaultData: any) => {
+  const providers = vaultData.providers || {};
+  const activeKey = vaultData.active_provider || 'gemini';
+  const newSetupModels: AIModelItem[] = [];
+
+  // 1. Google Gemini
+  if (providers.gemini) {
+    const isActive = activeKey === 'gemini';
+    const modelName = providers.gemini.model || 'gemini-3.1-flash-lite';
+    newSetupModels.push({
+      id: 'gemini',
+      provider: 'gemini',
+      model: modelName,
+      name: `Google Gemini (${modelName})`,
+      tag: isActive ? 'Active BYO-AI in /settings' : 'Saved in /settings BYO-AI',
+      cost: '$0.003 / img',
+      badge: isActive ? '★ Active in /settings' : 'BYO-AI Saved',
+      type: 'image',
+      category: 'user_setup',
+      isUserSetup: true,
+    });
+  }
+
+  // 2. OpenAI
+  if (providers.openai && (providers.openai.is_configured || providers.openai.api_key || activeKey === 'openai')) {
+    const isActive = activeKey === 'openai';
+    const modelName = providers.openai.model || 'gpt-4o';
+    newSetupModels.push({
+      id: 'openai',
+      provider: 'openai',
+      model: modelName,
+      name: `OpenAI (${modelName})`,
+      tag: isActive ? 'Active BYO-AI in /settings' : 'Saved in /settings BYO-AI',
+      cost: '$0.040 / img',
+      badge: isActive ? '★ Active in /settings' : 'BYO-AI Saved',
+      type: 'image',
+      category: 'user_setup',
+      isUserSetup: true,
+    });
+  }
+
+  // 3. Claude
+  if (providers.claude && (providers.claude.is_configured || providers.claude.api_key || activeKey === 'claude')) {
+    const isActive = activeKey === 'claude';
+    const modelName = providers.claude.model || 'claude-3-5-sonnet';
+    newSetupModels.push({
+      id: 'claude',
+      provider: 'claude',
+      model: modelName,
+      name: `Claude (${modelName})`,
+      tag: isActive ? 'Active BYO-AI in /settings' : 'Saved in /settings BYO-AI',
+      cost: '$0.003 / prompt',
+      badge: isActive ? '★ Active in /settings' : 'BYO-AI Saved',
+      type: 'image',
+      category: 'user_setup',
+      isUserSetup: true,
+    });
+  }
+
+  // 4. Z AI
+  if (providers.z_ai && (providers.z_ai.is_configured || providers.z_ai.api_key || activeKey === 'z_ai')) {
+    const isActive = activeKey === 'z_ai';
+    const modelName = providers.z_ai.model || 'z-ai-large';
+    newSetupModels.push({
+      id: 'z_ai',
+      provider: 'z_ai',
+      model: modelName,
+      name: `Z AI (${modelName})`,
+      tag: isActive ? 'Active BYO-AI in /settings' : 'Saved in /settings BYO-AI',
+      cost: '$0.003 / prompt',
+      badge: isActive ? '★ Active in /settings' : 'BYO-AI Saved',
+      type: 'image',
+      category: 'user_setup',
+      isUserSetup: true,
+    });
+  }
+
+  // 5. Custom Local / OpenAI compatible
+  if (providers.custom && (providers.custom.is_configured || providers.custom.base_url || activeKey === 'custom')) {
+    const isActive = activeKey === 'custom';
+    const modelName = providers.custom.model || 'llama3.2';
+    newSetupModels.push({
+      id: 'custom',
+      provider: 'custom',
+      model: modelName,
+      name: `Custom LLM (${modelName})`,
+      tag: isActive ? 'Active BYO-AI in /settings' : 'Saved in /settings BYO-AI',
+      cost: 'Local / Zero Cost',
+      badge: isActive ? '★ Active in /settings' : 'BYO-AI Saved',
+      type: 'image',
+      category: 'user_setup',
+      isUserSetup: true,
+    });
+  }
+
+  // Sort so the active provider saved in /settings is at the very top!
+  newSetupModels.sort((a, b) => {
+    if (a.id === activeKey) return -1;
+    if (b.id === activeKey) return 1;
+    return 0;
+  });
+
+  // Retain non-setup models (Diffusion Image + Video)
+  const remaining = generationModels.value.filter(m => m.category !== 'user_setup');
+  generationModels.value = [...newSetupModels, ...remaining];
+
+  // If selectedVideoModel was pointing to a user setup model, update to match activeKey
+  if (selectedVideoModel.value === 'gemini' || selectedVideoModel.value === activeKey) {
+    selectedVideoModel.value = activeKey;
+  }
+  if (newSetupModels.length > 0) {
+    selectedImageModel.value = newSetupModels[0].id;
+  }
+};
 
 const cameraMotion = ref<'pan_right' | 'zoom_in' | 'zoom_out' | 'orbit' | 'static'>('zoom_in');
 const videoDuration = ref<number>(10);
@@ -289,7 +529,7 @@ const triggerGenerateVideo = async () => {
 };
 
 // ==========================================
-// 4. AI IMAGE GENERATOR
+// 4. AI IMAGE GENERATOR & UNIFIED GENERATION DISPATCHER
 // ==========================================
 const imagePrompt = ref('');
 const imageStyle = ref('photorealistic');
@@ -302,10 +542,23 @@ const imageStyles = [
   { id: '3d_render', name: 'Executive 3D Glass' },
 ];
 
-const triggerGenerateImage = async () => {
-  if (!imagePrompt.value) return;
-  isGeneratingImage.value = true;
+const isGeneratingActiveModel = computed(() => isGeneratingVideo.value || isGeneratingImage.value);
 
+const generateButtonLabel = computed(() => {
+  if (isGeneratingVideo.value) {
+    return 'Rendering Video Frame...';
+  }
+  if (isGeneratingImage.value) {
+    return `Synthesizing visual with ${activeModelObj.value.name}...`;
+  }
+  if (activeModelObj.value.type === 'image') {
+    return `✨ Generate Image with ${activeModelObj.value.name} (${activeModelObj.value.cost})`;
+  }
+  return `🎬 Generate Video (${activeModelObj.value.cost})`;
+});
+
+const generateImageWithModel = async (promptText: string, modelObj: AIModelItem) => {
+  isGeneratingImage.value = true;
   try {
     const res = await fetch('/api/v1/media/ai/generate', {
       method: 'POST',
@@ -314,25 +567,45 @@ const triggerGenerateImage = async () => {
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        prompt: `${imagePrompt.value}, style: ${imageStyle.value}`,
+        prompt: promptText,
         aspect_ratio: selectedAspect.value === 'original' ? '16:9' : selectedAspect.value,
+        provider: modelObj.provider || modelObj.id,
+        model: modelObj.model || modelObj.id,
       }),
     });
 
     if (res.ok) {
       const data = await res.json();
       currentAsset.value = data.data;
-      showToast('New AI Visual generated and loaded onto canvas!');
+      elements.value = []; // Clean canvas
+      showToast(`✨ Generated visual with ${modelObj.name}!`);
       loadImage();
     } else {
       const err = await res.json();
       showToast(err.message || 'Image generation failed.', 'error');
     }
   } catch (e: any) {
-    showToast(e.message || 'Error generating image.', 'error');
+    showToast(e.message || 'Error generating image with setup model.', 'error');
   } finally {
     isGeneratingImage.value = false;
   }
+};
+
+const triggerGenerateActiveModel = async () => {
+  if (activeModelObj.value.type === 'image') {
+    const promptToUse = (videoTab.value === 'text_to_video' ? textVideoPrompt.value : motionPrompt.value) || imagePrompt.value || 'Strategic cloud architecture with modern microservices';
+    await generateImageWithModel(promptToUse, activeModelObj.value);
+  } else {
+    await triggerGenerateVideo();
+  }
+};
+
+const triggerGenerateImage = async () => {
+  if (!imagePrompt.value) {
+    showToast('Please enter an image prompt.', 'error');
+    return;
+  }
+  await generateImageWithModel(`${imagePrompt.value}, style: ${imageStyle.value}`, activeModelObj.value);
 };
 
 // ==========================================
@@ -822,7 +1095,18 @@ const loadImage = () => {
       });
     };
     retry.onerror = () => {
-      drawCanvas();
+      const fallback = new Image();
+      fallback.crossOrigin = 'anonymous';
+      fallback.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&q=80';
+      fallback.onload = () => {
+        sourceImage.value = fallback;
+        nextTick(() => {
+          drawCanvas();
+        });
+      };
+      fallback.onerror = () => {
+        drawCanvas();
+      };
     };
   };
 };
@@ -1252,8 +1536,13 @@ const handleKeyDown = (e: KeyboardEvent) => {
 };
 
 onMounted(() => {
+  const isVid = isVideoAsset.value;
+  studioMode.value = isVid ? 'video' : 'photo';
+  activeTool.value = isVid ? 'ai_video' : 'filters';
+  isFlyoutOpen.value = true;
   loadImage();
   pushHistory();
+  loadAiConfig();
   window.addEventListener('keydown', handleKeyDown);
 });
 
@@ -1264,6 +1553,10 @@ onUnmounted(() => {
 watch(() => props.asset, (newA) => {
   if (newA) {
     currentAsset.value = { ...newA };
+    const isVid = isVideoAsset.value;
+    studioMode.value = isVid ? 'video' : 'photo';
+    activeTool.value = isVid ? 'ai_video' : 'filters';
+    isFlyoutOpen.value = true;
     loadImage();
   }
 });
@@ -1344,12 +1637,6 @@ watch([selectedAspect, adjustments], () => {
           </div>
         </div>
 
-        <!-- Picsart-style Gradient Pro Badge -->
-        <div class="px-3 py-1 rounded-full bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white font-bold text-[11px] shadow-xs flex items-center gap-1 cursor-pointer hover:opacity-90 transition">
-          <Sparkles class="w-3 h-3 text-white" />
-          <span>Pro Studio</span>
-        </div>
-
         <!-- Editable Project Title -->
         <input
           v-model="projectTitle"
@@ -1378,36 +1665,31 @@ watch([selectedAspect, adjustments], () => {
         </div>
       </div>
 
-      <!-- Center: Universal Tool Search Bar -->
-      <div class="hidden md:flex items-center w-72 lg:w-96 relative">
-        <div class="relative w-full">
-          <Search class="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            v-model="searchQuery"
-            placeholder="Find a tool, effect or preset..."
-            class="w-full bg-slate-100/90 hover:bg-slate-100 focus:bg-white border border-slate-200/80 rounded-full pl-9 pr-4 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-fuchsia-500 transition shadow-2xs"
-          />
-        </div>
-
-        <!-- Search Results Dropdown -->
-        <div
-          v-if="filteredTools.length > 0"
-          class="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1"
+      <!-- Center: Studio Mode Switcher (Photo Editor vs AI Video Studio) -->
+      <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-2xs">
+        <button
+          @click="switchToPhotoMode"
+          type="button"
+          :class="[
+            'flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition',
+            studioMode === 'photo' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+          ]"
         >
-          <div
-            v-for="item in filteredTools"
-            :key="item.id"
-            @click="toggleTool(item.id as any); searchQuery = ''"
-            class="p-2 rounded-xl hover:bg-fuchsia-50 cursor-pointer flex items-center justify-between text-xs transition"
-          >
-            <div class="flex items-center gap-2">
-              <component :is="item.icon" class="w-4 h-4 text-fuchsia-600" />
-              <span class="font-bold text-slate-800">{{ item.name }}</span>
-            </div>
-            <span class="text-[10px] text-slate-400">{{ item.category }}</span>
-          </div>
-        </div>
+          <ImageIcon class="w-3.5 h-3.5 text-emerald-600" />
+          <span>Photo Editor</span>
+        </button>
+
+        <button
+          @click="switchToVideoMode"
+          type="button"
+          :class="[
+            'flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition',
+            studioMode === 'video' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+          ]"
+        >
+          <Film class="w-3.5 h-3.5 text-fuchsia-600" />
+          <span>AI Video Studio</span>
+        </button>
       </div>
 
       <!-- Right: User Avatar & Export Action Button -->
@@ -1459,9 +1741,97 @@ watch([selectedAspect, adjustments], () => {
     <!-- ======================================================== -->
     <div class="flex-1 flex overflow-hidden relative">
       
-      <!-- A. LEFT ICON TOOL STRIP (Picsart Vertical Tool Strip) -->
+      <!-- A. LEFT ICON TOOL STRIP (Photo & Video Tools) -->
       <nav class="w-16 bg-white border-r border-slate-200 flex flex-col items-center py-3 space-y-2 shrink-0 z-20 shadow-2xs">
         
+        <!-- Filters & Color Tuning -->
+        <button
+          @click="toggleTool('filters')"
+          :class="[
+            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
+            activeTool === 'filters' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          ]"
+          title="Color Tuning & Filters"
+        >
+          <Sliders class="w-5 h-5" />
+          <span class="text-[9px] font-medium mt-0.5">Filters</span>
+          <div v-if="activeTool === 'filters'" class="absolute -right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-600 rounded-l-full"></div>
+        </button>
+
+        <!-- Crop & Aspect Ratios -->
+        <button
+          @click="toggleTool('aspect')"
+          :class="[
+            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
+            activeTool === 'aspect' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          ]"
+          title="Crop & Aspect Ratios"
+        >
+          <Crop class="w-5 h-5" />
+          <span class="text-[9px] font-medium mt-0.5">Crop</span>
+          <div v-if="activeTool === 'aspect'" class="absolute -right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-600 rounded-l-full"></div>
+        </button>
+
+        <!-- Text & Typography -->
+        <button
+          @click="toggleTool('text')"
+          :class="[
+            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
+            activeTool === 'text' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          ]"
+          title="Text & Typography"
+        >
+          <Type class="w-5 h-5" />
+          <span class="text-[9px] font-medium mt-0.5">Text</span>
+          <div v-if="activeTool === 'text'" class="absolute -right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-600 rounded-l-full"></div>
+        </button>
+
+        <!-- Executive Layouts & Templates -->
+        <button
+          @click="toggleTool('templates')"
+          :class="[
+            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
+            activeTool === 'templates' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          ]"
+          title="Social Card Layouts"
+        >
+          <LayoutTemplate class="w-5 h-5" />
+          <span class="text-[9px] font-medium mt-0.5">Layouts</span>
+          <div v-if="activeTool === 'templates'" class="absolute -right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-600 rounded-l-full"></div>
+        </button>
+
+        <!-- Shapes & Badges -->
+        <button
+          @click="toggleTool('elements')"
+          :class="[
+            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
+            activeTool === 'elements' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          ]"
+          title="Elements & Badges"
+        >
+          <Shapes class="w-5 h-5" />
+          <span class="text-[9px] font-medium mt-0.5">Shapes</span>
+          <div v-if="activeTool === 'elements'" class="absolute -right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-600 rounded-l-full"></div>
+        </button>
+
+        <!-- Uploads -->
+        <button
+          @click="toggleTool('uploads')"
+          :class="[
+            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
+            activeTool === 'uploads' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          ]"
+          title="Upload Media & Assets"
+        >
+          <UploadCloud class="w-5 h-5" />
+          <span class="text-[9px] font-medium mt-0.5">Upload</span>
+          <div v-if="activeTool === 'uploads'" class="absolute -right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-600 rounded-l-full"></div>
+        </button>
+
+        <!-- Divider -->
+        <div class="w-8 h-px bg-slate-200 my-1"></div>
+
+        <!-- AI Video Generator -->
         <button
           @click="toggleTool('ai_video')"
           :class="[
@@ -1475,6 +1845,7 @@ watch([selectedAspect, adjustments], () => {
           <div v-if="activeTool === 'ai_video'" class="absolute -right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-fuchsia-600 rounded-l-full"></div>
         </button>
 
+        <!-- AI Image Synthesizer -->
         <button
           @click="toggleTool('ai_image')"
           :class="[
@@ -1485,90 +1856,21 @@ watch([selectedAspect, adjustments], () => {
         >
           <Wand2 class="w-5 h-5" />
           <span class="text-[9px] font-medium mt-0.5">AI Image</span>
+          <div v-if="activeTool === 'ai_image'" class="absolute -right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-fuchsia-600 rounded-l-full"></div>
         </button>
 
-        <button
-          @click="toggleTool('templates')"
-          :class="[
-            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
-            activeTool === 'templates' ? 'text-fuchsia-600 bg-fuchsia-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          ]"
-          title="Executive Layouts"
-        >
-          <LayoutTemplate class="w-5 h-5" />
-          <span class="text-[9px] font-medium mt-0.5">Layouts</span>
-        </button>
-
-        <button
-          @click="toggleTool('uploads')"
-          :class="[
-            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
-            activeTool === 'uploads' ? 'text-fuchsia-600 bg-fuchsia-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          ]"
-          title="Upload Media & Assets"
-        >
-          <UploadCloud class="w-5 h-5" />
-          <span class="text-[9px] font-medium mt-0.5">Upload</span>
-        </button>
-
-        <button
-          @click="toggleTool('text')"
-          :class="[
-            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
-            activeTool === 'text' ? 'text-fuchsia-600 bg-fuchsia-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          ]"
-          title="Text & Typography"
-        >
-          <Type class="w-5 h-5" />
-          <span class="text-[9px] font-medium mt-0.5">Text</span>
-        </button>
-
-        <button
-          @click="toggleTool('elements')"
-          :class="[
-            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
-            activeTool === 'elements' ? 'text-fuchsia-600 bg-fuchsia-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          ]"
-          title="Elements, Badges & Shapes"
-        >
-          <Shapes class="w-5 h-5" />
-          <span class="text-[9px] font-medium mt-0.5">Shapes</span>
-        </button>
-
-        <button
-          @click="toggleTool('filters')"
-          :class="[
-            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
-            activeTool === 'filters' ? 'text-fuchsia-600 bg-fuchsia-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          ]"
-          title="Effects & Color Grading"
-        >
-          <Sliders class="w-5 h-5" />
-          <span class="text-[9px] font-medium mt-0.5">Effects</span>
-        </button>
-
-        <button
-          @click="toggleTool('aspect')"
-          :class="[
-            'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
-            activeTool === 'aspect' ? 'text-fuchsia-600 bg-fuchsia-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          ]"
-          title="Aspect Ratios"
-        >
-          <Crop class="w-5 h-5" />
-          <span class="text-[9px] font-medium mt-0.5">Canvas</span>
-        </button>
-
+        <!-- Layers Stack -->
         <button
           @click="toggleTool('layers')"
           :class="[
             'w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition group relative',
-            activeTool === 'layers' ? 'text-fuchsia-600 bg-fuchsia-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+            activeTool === 'layers' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
           ]"
           title="Layer Management"
         >
           <Layers class="w-5 h-5" />
           <span class="text-[9px] font-medium mt-0.5">Layers</span>
+          <div v-if="activeTool === 'layers'" class="absolute -right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-600 rounded-l-full"></div>
         </button>
 
       </nav>
@@ -1673,49 +1975,123 @@ watch([selectedAspect, adjustments], () => {
             </div>
           </div>
 
-          <!-- Model Selection Accordion (Picsart Reference Dropdown!) -->
+          <!-- Model Selection Accordion (AI Video Generator Drawer) -->
           <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-slate-700">Generation Model</label>
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-slate-700">Generation Model</label>
+              <a href="/settings" class="text-[10px] font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 transition flex items-center gap-1 shadow-2xs">
+                <span>BYO-AI Settings</span>
+                <ExternalLink class="w-2.5 h-2.5" />
+              </a>
+            </div>
             
             <div class="relative">
               <button
-                @click="isModelDropdownOpen = !isModelDropdownOpen"
-                class="w-full p-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white flex items-center justify-between text-left transition"
+                @click="isVideoModelDropdownOpen = !isVideoModelDropdownOpen"
+                class="w-full p-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white flex items-center justify-between text-left transition shadow-2xs"
               >
                 <div class="space-y-0.5">
                   <div class="flex items-center gap-2">
-                    <span class="text-xs font-bold text-slate-900">{{ activeModelObj.name }}</span>
-                    <span class="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-fuchsia-100 text-fuchsia-700">
-                      {{ activeModelObj.badge }}
+                    <span class="text-xs font-bold text-slate-900">{{ activeVideoModelObj.name }}</span>
+                    <span
+                      class="text-[10px] font-semibold px-2 py-0.2 rounded-full"
+                      :class="activeVideoModelObj.isUserSetup ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-fuchsia-100 text-fuchsia-700'"
+                    >
+                      {{ activeVideoModelObj.badge }}
                     </span>
                   </div>
-                  <p class="text-[10px] text-slate-400 truncate">{{ activeModelObj.tag }}</p>
+                  <p class="text-[10px] text-slate-400 truncate">{{ activeVideoModelObj.tag }}</p>
                 </div>
-                <ChevronDown class="w-4 h-4 text-slate-400" :class="{'rotate-180': isModelDropdownOpen}" />
+                <ChevronDown class="w-4 h-4 text-slate-400" :class="{'rotate-180': isVideoModelDropdownOpen}" />
               </button>
 
-              <!-- Dropdown List of Video Models -->
+              <!-- Dropdown List of Video Models & BYO-AI Models (BYO-AI FIRST) -->
               <div
-                v-if="isModelDropdownOpen"
-                class="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-30 p-2 space-y-1"
+                v-if="isVideoModelDropdownOpen"
+                class="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-40 p-2 space-y-2 max-h-96 overflow-y-auto"
               >
-                <div
-                  v-for="model in videoModels"
-                  :key="model.id"
-                  @click="selectedModel = model.id; isModelDropdownOpen = false"
-                  :class="[
-                    'p-2.5 rounded-xl cursor-pointer flex items-center justify-between text-left transition',
-                    selectedModel === model.id ? 'bg-fuchsia-50 border border-fuchsia-200' : 'hover:bg-slate-50'
-                  ]"
-                >
-                  <div>
-                    <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <span>{{ model.name }}</span>
-                      <span class="text-[9px] font-mono text-slate-400">• {{ model.cost }}</span>
-                    </div>
-                    <div class="text-[10px] text-slate-400">{{ model.tag }}</div>
+                <!-- Group 1: Bring Your Own AI Model (BYO-AI) from /settings -->
+                <div v-if="userSetupModels.length > 0" class="space-y-1">
+                  <div class="px-2 pt-1 pb-0.5 text-[10px] font-bold tracking-wider text-emerald-700 uppercase flex items-center justify-between">
+                    <span class="flex items-center gap-1.5">
+                      <Sparkles class="w-3 h-3 text-emerald-600" />
+                      <span>Bring Your Own AI Model (BYO-AI)</span>
+                    </span>
+                    <span class="text-[9px] font-mono text-slate-400">/settings</span>
                   </div>
-                  <Check v-if="selectedModel === model.id" class="w-4 h-4 text-fuchsia-600" />
+                  <div
+                    v-for="model in userSetupModels"
+                    :key="model.id"
+                    @click="selectedVideoModel = model.id; isVideoModelDropdownOpen = false"
+                    :class="[
+                      'p-2.5 rounded-xl cursor-pointer flex items-center justify-between text-left transition',
+                      selectedVideoModel === model.id ? 'bg-emerald-50/90 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'
+                    ]"
+                  >
+                    <div>
+                      <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>{{ model.name }}</span>
+                        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                          {{ model.badge }}
+                        </span>
+                      </div>
+                      <div class="text-[10px] text-slate-500">{{ model.tag }}</div>
+                      <div class="text-[9px] font-mono text-emerald-600 font-semibold mt-0.5">{{ model.cost }}</div>
+                    </div>
+                    <Check v-if="selectedVideoModel === model.id" class="w-4 h-4 text-emerald-600 shrink-0" />
+                  </div>
+                </div>
+
+                <!-- Group 2: AI Video Synthesis Models -->
+                <div class="space-y-1 pt-1 border-t border-slate-100">
+                  <div class="px-2 pt-1 pb-0.5 text-[10px] font-bold tracking-wider text-fuchsia-600 uppercase flex items-center gap-1.5">
+                    <Film class="w-3 h-3 text-fuchsia-600" />
+                    <span>AI Video Synthesis Models</span>
+                  </div>
+                  <div
+                    v-for="model in videoDiffusionModels"
+                    :key="model.id"
+                    @click="selectedVideoModel = model.id; isVideoModelDropdownOpen = false"
+                    :class="[
+                      'p-2.5 rounded-xl cursor-pointer flex items-center justify-between text-left transition',
+                      selectedVideoModel === model.id ? 'bg-fuchsia-50 border border-fuchsia-200' : 'hover:bg-slate-50 border border-transparent'
+                    ]"
+                  >
+                    <div>
+                      <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>{{ model.name }}</span>
+                        <span class="text-[9px] font-mono text-slate-400">• {{ model.cost }}</span>
+                      </div>
+                      <div class="text-[10px] text-slate-400">{{ model.tag }}</div>
+                    </div>
+                    <Check v-if="selectedVideoModel === model.id" class="w-4 h-4 text-fuchsia-600 shrink-0" />
+                  </div>
+                </div>
+
+                <!-- Group 3: Visual Diffusion Models -->
+                <div class="space-y-1 pt-1 border-t border-slate-100">
+                  <div class="px-2 pt-1 pb-0.5 text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center gap-1.5">
+                    <Wand2 class="w-3 h-3 text-slate-500" />
+                    <span>Visual Diffusion Models</span>
+                  </div>
+                  <div
+                    v-for="model in diffusionImageModels"
+                    :key="model.id"
+                    @click="selectedVideoModel = model.id; isVideoModelDropdownOpen = false"
+                    :class="[
+                      'p-2.5 rounded-xl cursor-pointer flex items-center justify-between text-left transition',
+                      selectedVideoModel === model.id ? 'bg-fuchsia-50 border border-fuchsia-200' : 'hover:bg-slate-50 border border-transparent'
+                    ]"
+                  >
+                    <div>
+                      <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>{{ model.name }}</span>
+                        <span class="text-[9px] font-mono text-slate-400">• {{ model.cost }}</span>
+                      </div>
+                      <div class="text-[10px] text-slate-400">{{ model.tag }}</div>
+                    </div>
+                    <Check v-if="selectedVideoModel === model.id" class="w-4 h-4 text-fuchsia-600 shrink-0" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1757,12 +2133,12 @@ watch([selectedAspect, adjustments], () => {
             </div>
 
             <button
-              @click="triggerGenerateVideo"
-              :disabled="isGeneratingVideo"
-              class="w-full py-3 rounded-2xl bg-gradient-to-r from-[#d946ef] to-[#ec4899] hover:from-[#c026d3] hover:to-[#db2777] text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-2 transition hover:scale-101 active:scale-98 disabled:opacity-50"
+              @click="triggerGenerateActiveModel"
+              :disabled="isGeneratingActiveModel"
+              class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#d946ef] to-[#ec4899] hover:from-[#c026d3] hover:to-[#db2777] text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-2 transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
             >
-              <Sparkles class="w-4 h-4 text-white" :class="{'animate-spin': isGeneratingVideo}" />
-              <span>{{ isGeneratingVideo ? 'Rendering Video Frame...' : 'Generate Video (20 credits)' }}</span>
+              <Sparkles class="w-4 h-4 text-white" :class="{'animate-spin': isGeneratingActiveModel}" />
+              <span>{{ generateButtonLabel }}</span>
             </button>
 
             <p class="text-[10px] text-center text-slate-400 leading-tight">
@@ -1782,6 +2158,96 @@ watch([selectedAspect, adjustments], () => {
             <button @click="isFlyoutOpen = false" class="text-slate-400 hover:text-slate-600">
               <CloseIcon class="w-4 h-4" />
             </button>
+          </div>
+
+          <!-- Model Selection Accordion (AI Image Synthesizer Drawer) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-slate-700">Generation Model</label>
+              <span v-if="activeImageModelObj.isUserSetup" class="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                Vault Setup
+              </span>
+            </div>
+            
+            <div class="relative">
+              <button
+                @click="isImageModelDropdownOpen = !isImageModelDropdownOpen"
+                class="w-full p-2.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white flex items-center justify-between text-left transition shadow-2xs"
+              >
+                <div class="space-y-0.5">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-900">{{ activeImageModelObj.name }}</span>
+                    <span
+                      class="text-[10px] font-semibold px-2 py-0.2 rounded-full"
+                      :class="activeImageModelObj.isUserSetup ? 'bg-amber-100 text-amber-800' : 'bg-fuchsia-100 text-fuchsia-700'"
+                    >
+                      {{ activeImageModelObj.badge }}
+                    </span>
+                  </div>
+                  <p class="text-[10px] text-slate-400 truncate">{{ activeImageModelObj.tag }}</p>
+                </div>
+                <ChevronDown class="w-4 h-4 text-slate-400" :class="{'rotate-180': isImageModelDropdownOpen}" />
+              </button>
+
+              <!-- Dropdown List of Image Models -->
+              <div
+                v-if="isImageModelDropdownOpen"
+                class="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-40 p-2 space-y-2 max-h-80 overflow-y-auto"
+              >
+                <!-- Group 1: User Configured Models from Settings Vault -->
+                <div v-if="userSetupModels.length > 0" class="space-y-1">
+                  <div class="px-2 pt-1 pb-0.5 text-[10px] font-bold tracking-wider text-amber-700 uppercase flex items-center gap-1.5">
+                    <span>👑 Configured in Settings Vault</span>
+                  </div>
+                  <div
+                    v-for="model in userSetupModels"
+                    :key="model.id"
+                    @click="selectedImageModel = model.id; isImageModelDropdownOpen = false"
+                    :class="[
+                      'p-2.5 rounded-xl cursor-pointer flex items-center justify-between text-left transition',
+                      selectedImageModel === model.id ? 'bg-amber-50/90 border border-amber-300' : 'hover:bg-slate-50 border border-transparent'
+                    ]"
+                  >
+                    <div>
+                      <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>{{ model.name }}</span>
+                        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                          {{ model.badge }}
+                        </span>
+                      </div>
+                      <div class="text-[10px] text-slate-500">{{ model.tag }}</div>
+                      <div class="text-[9px] font-mono text-emerald-600 font-semibold mt-0.5">{{ model.cost }}</div>
+                    </div>
+                    <Check v-if="selectedImageModel === model.id" class="w-4 h-4 text-amber-600 shrink-0" />
+                  </div>
+                </div>
+
+                <!-- Group 2: Visual Diffusion Models -->
+                <div class="space-y-1">
+                  <div class="px-2 pt-1 pb-0.5 text-[10px] font-bold tracking-wider text-fuchsia-600 uppercase flex items-center gap-1.5">
+                    <span>⚡ Visual Diffusion Models</span>
+                  </div>
+                  <div
+                    v-for="model in diffusionImageModels"
+                    :key="model.id"
+                    @click="selectedImageModel = model.id; isImageModelDropdownOpen = false"
+                    :class="[
+                      'p-2.5 rounded-xl cursor-pointer flex items-center justify-between text-left transition',
+                      selectedImageModel === model.id ? 'bg-fuchsia-50 border border-fuchsia-200' : 'hover:bg-slate-50 border border-transparent'
+                    ]"
+                  >
+                    <div>
+                      <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>{{ model.name }}</span>
+                        <span class="text-[9px] font-mono text-slate-400">• {{ model.cost }}</span>
+                      </div>
+                      <div class="text-[10px] text-slate-400">{{ model.tag }}</div>
+                    </div>
+                    <Check v-if="selectedImageModel === model.id" class="w-4 h-4 text-fuchsia-600 shrink-0" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="space-y-1.5">
@@ -1815,10 +2281,10 @@ watch([selectedAspect, adjustments], () => {
             <button
               @click="triggerGenerateImage"
               :disabled="isGeneratingImage || !imagePrompt"
-              class="w-full py-3 rounded-2xl bg-gradient-to-r from-[#d946ef] to-[#ec4899] hover:from-[#c026d3] hover:to-[#db2777] text-white font-bold text-xs shadow-md flex items-center justify-center gap-2 transition disabled:opacity-50"
+              class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#d946ef] to-[#ec4899] hover:from-[#c026d3] hover:to-[#db2777] text-white font-bold text-xs shadow-md flex items-center justify-center gap-2 transition disabled:opacity-50"
             >
               <Sparkles class="w-4 h-4 text-white" :class="{'animate-spin': isGeneratingImage}" />
-              <span>{{ isGeneratingImage ? 'Synthesizing with Flux...' : 'Generate Visual ($0.04)' }}</span>
+              <span>{{ isGeneratingImage ? ('Synthesizing with ' + activeModelObj.name + '...') : ('Generate Visual with ' + activeModelObj.name + ' (' + activeModelObj.cost + ')') }}</span>
             </button>
           </div>
         </div>

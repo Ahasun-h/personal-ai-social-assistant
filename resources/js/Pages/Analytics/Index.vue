@@ -1,8 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { BarChart3, TrendingUp, Users, MessageSquare, ThumbsUp, Repeat, MousePointer } from 'lucide-vue-next';
+import {
+  BarChart3,
+  TrendingUp,
+  Users,
+  MessageSquare,
+  ThumbsUp,
+  Repeat,
+  MousePointer,
+  Sparkles,
+  AlertCircle,
+  Lock,
+  CheckCircle2,
+} from 'lucide-vue-next';
 
 interface Snapshot {
   id: string;
@@ -48,6 +60,40 @@ const props = withDefaults(defineProps<Props>(), {
     avg_engagement_rate: 0.0482,
   }),
 });
+
+const page = usePage();
+const hasAiKey = computed(() => {
+  return !!(page.props as any).hasAiKey;
+});
+
+const isGeneratingAiInsights = ref(false);
+const aiInsights = ref<any>(null);
+const aiError = ref<string | null>(null);
+
+const generateInsights = async () => {
+  if (!hasAiKey.value) return;
+  isGeneratingAiInsights.value = true;
+  aiError.value = null;
+  try {
+    const res = await fetch('/api/v1/analytics/ai-insights', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      aiInsights.value = data.data;
+    } else {
+      aiError.value = data.message || 'Failed to synthesize AI telemetry insights.';
+    }
+  } catch (e: any) {
+    aiError.value = e.message || 'Network error.';
+  } finally {
+    isGeneratingAiInsights.value = false;
+  }
+};
 
 const cards = computed(() => [
   {
@@ -96,6 +142,87 @@ const cards = computed(() => [
             Real-time analytics ingested via LinkedIn and X developer APIs.
           </p>
         </div>
+
+        <div class="flex items-center gap-2.5">
+          <button
+            @click="hasAiKey ? generateInsights() : null"
+            :disabled="!hasAiKey || isGeneratingAiInsights"
+            :class="[
+              'px-4 py-2 rounded-full font-semibold text-xs flex items-center gap-2 shadow-sm transition',
+              hasAiKey
+                ? 'bg-[#9EE493] hover:bg-[#8ee082] text-slate-900 cursor-pointer'
+                : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+            ]"
+            :title="hasAiKey ? 'Generate AI Telemetry Insights' : 'Configure AI API Key in Settings to generate AI insights'"
+          >
+            <Lock v-if="!hasAiKey" class="w-3.5 h-3.5 text-slate-400" />
+            <Sparkles v-else class="w-3.5 h-3.5 text-slate-900" :class="{ 'animate-spin': isGeneratingAiInsights }" />
+            <span>{{ isGeneratingAiInsights ? 'Synthesizing Telemetry...' : 'Generate AI Telemetry Insights' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Missing AI API Key Warning Banner -->
+      <div
+        v-if="!hasAiKey"
+        class="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-sm"
+      >
+        <div class="flex items-center gap-2.5">
+          <AlertCircle class="w-4 h-4 text-amber-600 shrink-0" />
+          <span>No AI API Key configured in Settings. AI audience telemetry and strategic post timing insights are disabled.</span>
+        </div>
+        <Link
+          href="/settings"
+          class="shrink-0 px-3.5 py-1.5 rounded-full bg-amber-200 hover:bg-amber-300 text-amber-950 font-semibold text-xs transition inline-flex items-center gap-1.5 self-start sm:self-auto shadow-xs"
+        >
+          <span>Configure API Key in Settings</span>
+          <span>→</span>
+        </Link>
+      </div>
+
+      <!-- AI Telemetry Insights Card (Rendered when synthesized) -->
+      <div
+        v-if="aiInsights"
+        class="bg-gradient-to-br from-[#162E35] to-[#1E3A40] text-white rounded-3xl p-6 shadow-contrast space-y-4 border border-white/10"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-[#9EE493]/20 flex items-center justify-center">
+              <Sparkles class="w-4 h-4 text-[#9EE493]" />
+            </div>
+            <div>
+              <h3 class="font-display font-bold text-sm text-white">{{ aiInsights.headline }}</h3>
+              <p class="text-[10px] text-slate-300">Generated via BYO-AI engine</p>
+            </div>
+          </div>
+          <button @click="aiInsights = null" class="text-xs text-white/60 hover:text-white px-2 py-1">✕</button>
+        </div>
+
+        <p class="text-xs text-slate-200 leading-relaxed font-sans">
+          {{ aiInsights.summary }}
+        </p>
+
+        <div class="pt-2 border-t border-white/10 space-y-2">
+          <span class="text-[10px] uppercase font-bold tracking-wider text-[#9EE493] font-mono">Key Recommendations</span>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            <div
+              v-for="(rec, i) in aiInsights.recommendations"
+              :key="i"
+              class="p-3 rounded-2xl bg-white/5 border border-white/10 text-[11px] text-slate-200 flex items-start gap-2"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-[#9EE493] mt-1 shrink-0"></span>
+              <span>{{ rec }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="aiError"
+        class="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs text-rose-800 flex items-center justify-between"
+      >
+        <span>{{ aiError }}</span>
+        <button @click="aiError = null" class="text-rose-500 hover:text-rose-700">✕</button>
       </div>
 
       <!-- KPI Summary Cards -->

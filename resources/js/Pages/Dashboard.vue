@@ -24,6 +24,8 @@ import {
   Layers,
   ShieldCheck,
   ExternalLink,
+  Lock,
+  AlertTriangle,
 } from 'lucide-vue-next';
 
 interface Props {
@@ -85,6 +87,8 @@ interface Props {
     monthly_llm_cap_usd?: number;
     current_month_llm_spend_usd?: number;
   };
+  hasAiKey?: boolean;
+  aiConfig?: Record<string, any>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -104,9 +108,15 @@ const props = withDefaults(defineProps<Props>(), {
     monthly_llm_cap_usd: 50.0,
     current_month_llm_spend_usd: 24.50,
   }),
+  hasAiKey: undefined,
+  aiConfig: () => ({}),
 });
 
 const page = usePage();
+const hasAiKey = computed(() => {
+  if (typeof props.hasAiKey === 'boolean') return props.hasAiKey;
+  return !!(page.props as any).hasAiKey || !!(page.props as any).aiConfig?.has_ai_key;
+});
 const authUser = computed(() => (page.props as any).auth?.user || {
   name: 'Alex Rivera',
   email: 'alex@synthex.internal',
@@ -187,7 +197,7 @@ const dotMatrix = [
             <span class="text-slate-600 font-semibold">AI Social Command Center</span>
           </div>
           <h1 class="text-2xl sm:text-3xl font-display font-bold text-slate-900 tracking-tight mt-1">
-            Good morning, {{ userFirstName }}
+            Good morning, {{ authUser?.name || 'Alex Rivera' }}
           </h1>
           <p class="text-xs text-slate-500 mt-0.5">
             Cross-platform audience telemetry, AI curation pipeline, and automated dispatch queue.
@@ -197,12 +207,23 @@ const dotMatrix = [
         <!-- Header Actions: Add widget, Date Range, Schedule Post (Matching Image 1) -->
         <div class="flex items-center gap-2.5 flex-wrap">
           <Link
+            v-if="hasAiKey"
             href="/inbox"
             class="bg-white hover:bg-slate-50 border border-slate-200/80 px-4 py-2 rounded-full text-xs font-medium text-slate-700 shadow-sm flex items-center gap-1.5 transition"
+            title="Create new AI draft"
           >
             <Plus class="w-3.5 h-3.5 text-slate-500" />
             <span>New AI Draft</span>
           </Link>
+          <button
+            v-else
+            disabled
+            class="bg-slate-100 border border-slate-200/80 px-4 py-2 rounded-full text-xs font-medium text-slate-400 shadow-none flex items-center gap-1.5 opacity-60 cursor-not-allowed select-none"
+            title="AI drafting is disabled: Configure an AI API Key in Settings Vault"
+          >
+            <Lock class="w-3.5 h-3.5 text-slate-400" />
+            <span>New AI Draft (No API Key)</span>
+          </button>
 
           <div class="bg-white border border-slate-200/80 px-4 py-2 rounded-full text-xs font-medium text-slate-700 shadow-sm flex items-center gap-2">
             <CalendarIcon class="w-3.5 h-3.5 text-slate-400" />
@@ -217,6 +238,29 @@ const dotMatrix = [
             <span>Schedule Dispatch</span>
           </Link>
         </div>
+      </div>
+
+      <!-- AI Key Missing Notification Banner -->
+      <div
+        v-if="!hasAiKey"
+        class="bg-amber-50/90 border border-amber-200 rounded-2xl p-3.5 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-2xs"
+      >
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-700">
+            <AlertTriangle class="w-4 h-4" />
+          </div>
+          <div>
+            <span class="font-bold">AI Features Paused:</span>
+            <span class="ml-1 text-amber-800">No AI API key found in your Settings Vault. All AI generation buttons across Dashboard, Inbox, Trends, and Media Studio are disabled until an API key is saved.</span>
+          </div>
+        </div>
+        <Link
+          href="/settings"
+          class="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center gap-1.5 shrink-0 transition"
+        >
+          <span>Configure in Settings Vault</span>
+          <ArrowUpRight class="w-3.5 h-3.5 text-[#9EE493]" />
+        </Link>
       </div>
 
       <!-- Top KPI Bar (Image 2 style: 4 clear metrics with sparkline bars) -->
@@ -325,11 +369,23 @@ const dotMatrix = [
                 class="w-full h-full object-cover object-top mix-blend-multiply opacity-90"
               />
 
-              <!-- Pill badge on top left: AI Co-Pilot Active -->
-              <div class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+              <!-- Pill badge on top left: AI Co-Pilot Active or Missing Key Warning -->
+              <div
+                v-if="hasAiKey"
+                class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm"
+              >
                 <span>AI Co-Pilot 2.0 Active</span>
                 <span class="text-[#9EE493]">✦</span>
               </div>
+              <Link
+                v-else
+                href="/settings"
+                class="absolute top-3 left-3 bg-rose-950/85 backdrop-blur-md text-rose-200 border border-rose-500/30 text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm hover:bg-rose-900 transition"
+                title="Add your AI API Key in Settings to activate AI Co-Pilot"
+              >
+                <span>AI Co-Pilot Offline (No API Key)</span>
+                <span class="text-rose-400">⚠</span>
+              </Link>
 
               <!-- Frosted Glass Bar on Bottom: Dynamic User Profile -->
               <div class="absolute bottom-3 inset-x-3 bg-white/75 backdrop-blur-md rounded-2xl p-3 border border-white/60 shadow-sm flex items-center justify-between">
